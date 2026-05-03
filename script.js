@@ -12,6 +12,13 @@ const QUEUE_POSITION_DECREMENT = 1;
 const QUEUE_LOADING_DELAY = 1200;
 const PROVISION_STEP_DELAY = 1200;
 const BASE_COIN_AMOUNT = 1060;
+const REWARD_EVENT_WINDOW_MS = 20000;
+const DAILY_WINDOW_MS = 86400000;
+const SESSION_WINDOW_MS = 60000;
+const REWARD_SOURCES = {
+  dailyClaim: { coins: 180, xp: 120, cooldownMs: 2 * 60 * 60 * 1000, dailyCap: 8 },
+  adWatch: { coins: 65, xp: 45, cooldownMs: 10 * 60 * 1000, dailyCap: 12 },
+};
 
 const REWARD_COOLDOWN_SECONDS = 45;
 
@@ -159,6 +166,167 @@ const state = {
     xp: 720,
     xpMax: 1000,
   },
+  abuse: {
+    tokenBindings: new Map(),
+    ip: "198.51.100.42",
+    accountId: "acct_demo_001",
+    deviceId: "device_web_neon",
+    sessionFingerprint: "",
+    abuseFlags: [],
+    seenClaims: new Set(),
+    rewardStats: {},
+    rateLimits: {},
+    recentClaims: [],
+    accountClusters: new Map(),
+    riskScore: 0,
+  },
+};
+
+const createAntiAbuseModule = () => {
+  const abusePanel = qs("[data-abuse-flags]");
+  const riskBadge = qs("[data-risk-score]");
+  const redisLikeStore = new Map();
+  const randomToken = () => crypto.randomUUID();
+  const now = () => Date.now();
+
+  const getFingerprint = () =>
+    btoa(
+      [navigator.userAgent, navigator.language, screen.width, screen.height, Intl.DateTimeFormat().resolvedOptions().timeZone].join("|")
+    );
+
+  const pushAbuseFlag = (type, severity, details) => {
+    const event = { id: randomToken(), type, severity, details, at: new Date().toISOString() };
+    state.abuse.abuseFlags.unshift(event);
+    localStorage.setItem("abuse_flags", JSON.stringify(state.abuse.abuseFlags.slice(0, 50)));
+    renderAbuseFlags();
+  };
+
+  const keyFor = (scope, id) => `ratelimit:${scope}:${id}`;
+  const consumeRateLimit = (scope, id, max, windowMs) => {
+    const key = keyFor(scope, id);
+    const history = redisLikeStore.get(key) || [];
+    const valid = history.filter((ts) => now() - ts < windowMs);
+    if (valid.length >= max) {
+      pushAbuseFlag("rate_limit_exceeded", "medium", `${scope}:${id} exceeded ${max}/${windowMs}ms`);
+      redisLikeStore.set(key, valid);
+      return false;
+    }
+    valid.push(now());
+    redisLikeStore.set(key, valid);
+    return true;
+  };
+
+  const issueCaptcha = () => {
+    const token = randomToken();
+    state.abuse.captcha = { token, answer: "human", expiresAt: now() + 90000 };
+    return token;
+  };
+
+  const verifyCaptcha = (response, token) => {
+    const challenge = state.abuse.captcha;
+    const valid =
+      challenge &&
+      challenge.token === token &&
+      challenge.expiresAt > now() &&
+      String(response || "").toLowerCase().trim() === challenge.answer;
+    if (!valid) pushAbuseFlag("captcha_failed", "high", "Captcha verification failed");
+    return valid;
+  };
+
+  const bindSession = () => {
+    state.abuse.sessionFingerprint = getFingerprint();
+    state.abuse.tokenBindings.set("session_token", state.abuse.sessionFingerprint);
+  };
+
+  const verifySessionTokenBinding = (token = "session_token") => {
+    const expected = state.abuse.tokenBindings.get(token);
+    const matches = expected && expected === getFingerprint();
+    if (!matches) pushAbuseFlag("token_binding_mismatch", "high", `Token ${token} failed fingerprint check`);
+    return matches;
+  };
+
+  const checkCooldownAndDailyCap = (source) => {
+    const sourceRule = REWARD_SOURCES[source];
+    if (!sourceRule) return false;
+    const stats = state.abuse.rewardStats[source] || { lastClaimAt: 0, claims: [] };
+    const claims = stats.claims.filter((ts) => now() - ts < DAILY_WINDOW_MS);
+    if (claims.length >= sourceRule.dailyCap) {
+      pushAbuseFlag("daily_cap_reached", "low", `${source} cap reached`);
+      return false;
+    }
+    if (stats.lastClaimAt && now() - stats.lastClaimAt < sourceRule.cooldownMs) {
+      pushAbuseFlag("cooldown_active", "low", `${source} cooldown in effect`);
+      return false;
+    }
+    return true;
+  };
+
+  const scoreAnomaly = () => {
+    const recent = state.abuse.recentClaims.filter((c) => now() - c.at < SESSION_WINDOW_MS);
+    let score = 0;
+    if (recent.length > 4) score += 30;
+    const accountLinks = Array.from(state.abuse.accountClusters.values()).filter((v) => v.deviceId === state.abuse.deviceId);
+    if (accountLinks.length > 2) score += 35;
+    const impossibleTiming = recent.some((entry, i) => i > 0 && entry.at - recent[i - 1].at < 500);
+    if (impossibleTiming) score += 45;
+    state.abuse.riskScore = Math.min(100, score);
+    if (score >= 60) pushAbuseFlag("anomaly_detected", "high", `Heuristic risk score: ${score}`);
+    renderAbuseFlags();
+    return score;
+  };
+
+  const claimReward = ({ claimId, source, captchaResponse, captchaToken }) => {
+    if (state.abuse.seenClaims.has(claimId)) {
+      pushAbuseFlag("replay_detected", "high", `Duplicate claim id ${claimId}`);
+      return { ok: false, reason: "replay_detected" };
+    }
+    const rateOk =
+      consumeRateLimit("ip", state.abuse.ip, 8, SESSION_WINDOW_MS) &&
+      consumeRateLimit("account", state.abuse.accountId, 6, SESSION_WINDOW_MS) &&
+      consumeRateLimit("device", state.abuse.deviceId, 6, SESSION_WINDOW_MS);
+    if (!rateOk) return { ok: false, reason: "rate_limited" };
+    if (!verifySessionTokenBinding()) return { ok: false, reason: "token_binding_failed" };
+    const riskScore = scoreAnomaly();
+    if (riskScore >= 40) {
+      if (!verifyCaptcha(captchaResponse, captchaToken)) return { ok: false, reason: "captcha_required" };
+    }
+    if (!checkCooldownAndDailyCap(source)) return { ok: false, reason: "cooldown_or_cap" };
+
+    const rule = REWARD_SOURCES[source];
+    state.abuse.seenClaims.add(claimId);
+    const stats = state.abuse.rewardStats[source] || { claims: [] };
+    stats.lastClaimAt = now();
+    stats.claims = [...(stats.claims || []), now()];
+    state.abuse.rewardStats[source] = stats;
+    state.abuse.recentClaims.push({ claimId, source, at: now() });
+    state.reward.streak += 1;
+    state.reward.coins += rule.coins;
+    state.reward.xp = Math.min(state.reward.xpMax, state.reward.xp + rule.xp);
+    return { ok: true };
+  };
+
+  const renderAbuseFlags = () => {
+    if (riskBadge) riskBadge.textContent = `${state.abuse.riskScore}`;
+    if (!abusePanel) return;
+    abusePanel.innerHTML = "";
+    state.abuse.abuseFlags.slice(0, 12).forEach((flag) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${flag.type}</strong> <span class=\"muted\">(${flag.severity})</span><br><span class=\"muted mono\">${flag.at}</span><p>${flag.details}</p>`;
+      abusePanel.appendChild(li);
+    });
+  };
+
+  const seedFromStorage = () => {
+    const stored = localStorage.getItem("abuse_flags");
+    if (stored) state.abuse.abuseFlags = JSON.parse(stored);
+  };
+
+  seedFromStorage();
+  bindSession();
+  state.abuse.accountClusters.set("acct_demo_001", { deviceId: "device_web_neon" });
+  state.abuse.accountClusters.set("acct_demo_002", { deviceId: "device_web_neon" });
+  renderAbuseFlags();
+  return { claimReward, issueCaptcha, renderAbuseFlags };
 };
 
 const adsService = createAdsService({ audit: auditService });
@@ -705,6 +873,7 @@ const setupInteractions = () => {
   const wizard = setupWizard();
   const rewards = setupRewards();
   const adModal = setupAdModal();
+  const antiAbuse = createAntiAbuseModule();
 
   document.addEventListener("click", (event) => {
     const actionEl = event.target.closest("[data-action]");
@@ -772,11 +941,23 @@ const setupInteractions = () => {
         showToast("Queue skip applied · Position boosted");
         break;
       case "claim-reward":
-        state.reward.streak += 1;
-        state.reward.coins += 180;
-        state.reward.xp = Math.min(state.reward.xpMax, state.reward.xp + 120);
-        rewards.updateUI?.();
-        openModal("reward-modal");
+        {
+          const claimId = crypto.randomUUID();
+          const captchaToken = antiAbuse.issueCaptcha();
+          const result = antiAbuse.claimReward({
+            claimId,
+            source: "dailyClaim",
+            captchaToken,
+            captchaResponse: "human",
+          });
+          if (!result.ok) {
+            showToast(`Claim blocked: ${result.reason.replaceAll("_", " ")}`);
+            antiAbuse.renderAbuseFlags();
+            break;
+          }
+          rewards.updateUI?.();
+          openModal("reward-modal");
+        }
         break;
       case "open-settings":
         openModal("settings-modal");
@@ -792,6 +973,13 @@ const setupInteractions = () => {
         showToast("Pulse AI is generating your recommendations...");
         break;
       case "finish-ad":
+        antiAbuse.claimReward({
+          claimId: crypto.randomUUID(),
+          source: "adWatch",
+          captchaToken: antiAbuse.issueCaptcha(),
+          captchaResponse: "human",
+        });
+        rewards.updateUI?.();
         break;
       default:
         break;
