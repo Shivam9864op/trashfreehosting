@@ -922,7 +922,7 @@ case "start-provision":
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            name: "shivamSMP",
+            name: "server-" + Math.floor(Math.random() * 9999),
             ram: state.wizard.ram * 1024,
             edition: state.wizard.edition,
             type: state.wizard.type
@@ -1071,21 +1071,3 @@ document.addEventListener("DOMContentLoaded", () => {
   commerceService.purchaseCosmetic({ userId: state.userId, sku: "frame-neon-01", price: 600, kind: "profile_frame" });
   window.addEventListener("resize", createParticles);
 });
-async function createServer() {
-
-  const response = await fetch("http://192.168.1.13:3001/create-server", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      name: "shivamSMP",
-      ram: 1024
-    })
-  });
-
-  const data = await response.json();
-
-  alert(data.message);
-
-}
