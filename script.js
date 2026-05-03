@@ -1081,7 +1081,7 @@ document.addEventListener("DOMContentLoaded", () => {
   commerceService.purchaseCosmetic({ userId: state.userId, sku: "frame-neon-01", price: 600, kind: "profile_frame" });
   window.addEventListener("resize", createParticles);
 });
-const socket = io("http://192.168.1.13:3001");
+const socket = io("http://forward-chevrolet.with.playit.plus:1025");
 socket.on(`console-${serverId}`, (data) => {
 
     console.log(data.log);
