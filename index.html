@@ -37,9 +37,10 @@
         </div>
       </div>
       <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-        <span></span>
-        <span></span>
-        <span></span>
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="sr-only">Toggle navigation</span>
       </button>
     </header>
 
@@ -242,7 +243,8 @@
                   data-action="toggle-sidebar"
                   aria-label="Collapse sidebar"
                 >
-                  ⟨
+                  <span aria-hidden="true">⟨</span>
+                  <span class="sr-only">Collapse sidebar</span>
                 </button>
               </div>
               <div class="sidebar-tabs">
@@ -274,14 +276,16 @@
                     data-action="toggle-notifications"
                     aria-label="Notifications"
                   >
-                    🔔
+                    <span aria-hidden="true">🔔</span>
+                    <span class="sr-only">Notifications</span>
                   </button>
                   <button
                     class="icon-button"
                     data-action="open-settings"
                     aria-label="Settings"
                   >
-                    ⚙️
+                    <span aria-hidden="true">⚙️</span>
+                    <span class="sr-only">Settings</span>
                   </button>
                   <button class="btn primary small" data-action="open-console">
                     Launch Console
@@ -609,10 +613,12 @@
             <h3>Featured Servers</h3>
             <div class="carousel-controls">
               <button class="icon-button" data-action="carousel-prev" aria-label="Previous">
-                ‹
+                <span aria-hidden="true">‹</span>
+                <span class="sr-only">Previous</span>
               </button>
               <button class="icon-button" data-action="carousel-next" aria-label="Next">
-                ›
+                <span aria-hidden="true">›</span>
+                <span class="sr-only">Next</span>
               </button>
             </div>
           </div>

@@ -3,9 +3,13 @@ const qs = (selector, scope = document) => scope.querySelector(selector);
 const qsa = (selector, scope = document) => Array.from(scope.querySelectorAll(selector));
 
 const SECTION_VISIBILITY_THRESHOLD = 0.6;
-const INITIAL_GAIN_VALUE = 0.0001;
+const AUDIO_INITIAL_GAIN = 0.0001;
+const AUDIO_PEAK_GAIN = 0.06;
+const AUDIO_ATTACK_TIME = 0.01;
+const AUDIO_RELEASE_TIME = 0.2;
 const QUEUE_ADVANCE_PROBABILITY = 0.6;
 const QUEUE_POSITION_DECREMENT = 1;
+const QUEUE_LOADING_DELAY = 1200;
 
 const state = {
   wizard: {
@@ -97,8 +101,12 @@ const setBodyMotion = () => {
 };
 
 const getAudioContext = () => {
-  if (!state.audioContext) {
+  if (state.audioContext !== undefined) return state.audioContext;
+  try {
     state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (error) {
+    state.audioContext = null;
+    state.soundEnabled = false;
   }
   return state.audioContext;
 };
@@ -106,17 +114,21 @@ const getAudioContext = () => {
 const playClickSound = () => {
   if (!state.soundEnabled) return;
   const context = getAudioContext();
+  if (!context) return;
   const oscillator = context.createOscillator();
   const gain = context.createGain();
   oscillator.type = "triangle";
   oscillator.frequency.value = 420;
-  gain.gain.value = INITIAL_GAIN_VALUE;
+  gain.gain.value = AUDIO_INITIAL_GAIN;
   oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
-  gain.gain.exponentialRampToValueAtTime(0.06, context.currentTime + 0.01);
-  gain.gain.exponentialRampToValueAtTime(INITIAL_GAIN_VALUE, context.currentTime + 0.2);
-  oscillator.stop(context.currentTime + 0.25);
+  gain.gain.exponentialRampToValueAtTime(AUDIO_PEAK_GAIN, context.currentTime + AUDIO_ATTACK_TIME);
+  gain.gain.exponentialRampToValueAtTime(
+    AUDIO_INITIAL_GAIN,
+    context.currentTime + AUDIO_RELEASE_TIME
+  );
+  oscillator.stop(context.currentTime + AUDIO_RELEASE_TIME + 0.05);
 };
 
 const openModal = (id) => {
@@ -232,7 +244,8 @@ const setupDashboard = () => {
 
   qsa(".chart[data-value]").forEach((chart) => updateChart(chart, Number(chart.dataset.value)));
   updateDashboardMetrics();
-  setInterval(updateDashboardMetrics, 5000);
+  const metricInterval = setInterval(updateDashboardMetrics, 5000);
+  window.addEventListener("beforeunload", () => clearInterval(metricInterval));
 
   const consoleBody = qs(".console-body");
   if (consoleBody) {
@@ -408,7 +421,7 @@ const setupQueue = () => {
     });
   };
 
-  setTimeout(renderUpdates, 1200);
+  setTimeout(renderUpdates, QUEUE_LOADING_DELAY);
   updateQueue();
   setInterval(updateQueue, 1000);
 
@@ -417,8 +430,9 @@ const setupQueue = () => {
       1,
       state.queue.position - (Math.random() > QUEUE_ADVANCE_PROBABILITY ? QUEUE_POSITION_DECREMENT : 0)
     );
-    const nextUpdate = updates.shift();
-    updates.push(nextUpdate);
+    if (updates.length > 0) {
+      updates.push(updates.shift());
+    }
     if (updatesContainer && updatesContainer.children.length) {
       updatesContainer.firstElementChild.textContent = updates[0];
     }
@@ -448,10 +462,18 @@ const setupCommunity = () => {
   const track = qs(".carousel-track");
   if (!track) return;
   const cards = qsa(".carousel-card", track);
+  let stepSize = 0;
+
+  const calculateStep = () => {
+    if (!cards.length) return;
+    const gap = parseFloat(getComputedStyle(track).gap || "0");
+    stepSize = cards[0].getBoundingClientRect().width + gap;
+  };
+
   const updateCarousel = () => {
     if (!track || cards.length === 0) return;
-    const gap = parseFloat(getComputedStyle(track).gap || "0");
-    const cardWidth = cards[0].getBoundingClientRect().width + gap;
+    if (!stepSize) calculateStep();
+    const cardWidth = stepSize || cards[0].getBoundingClientRect().width;
     const trackContainer = track.parentElement;
     if (!trackContainer) return;
     const visible = Math.max(1, Math.floor(trackContainer.getBoundingClientRect().width / cardWidth));
@@ -460,8 +482,12 @@ const setupCommunity = () => {
     track.style.transform = `translateX(-${state.carouselIndex * cardWidth}px)`;
   };
 
+  calculateStep();
   updateCarousel();
-  window.addEventListener("resize", updateCarousel);
+  window.addEventListener("resize", () => {
+    calculateStep();
+    updateCarousel();
+  });
 
   const prev = qs('[data-action="carousel-prev"]');
   const next = qs('[data-action="carousel-next"]');
