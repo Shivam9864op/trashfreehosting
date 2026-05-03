@@ -2,6 +2,11 @@ const DISCORD_INVITE = "https://discord.gg/blockpulse";
 const qs = (selector, scope = document) => scope.querySelector(selector);
 const qsa = (selector, scope = document) => Array.from(scope.querySelectorAll(selector));
 
+const SECTION_VISIBILITY_THRESHOLD = 0.6;
+const INITIAL_GAIN_VALUE = 0.0001;
+const QUEUE_ADVANCE_PROBABILITY = 0.6;
+const QUEUE_POSITION_DECREMENT = 1;
+
 const state = {
   wizard: {
     step: 1,
@@ -18,7 +23,7 @@ const state = {
     position: 18,
     total: 62,
     waitSeconds: 272,
-    timerSeconds: 45,
+    elapsedSeconds: 45,
   },
   reward: {
     streak: 4,
@@ -105,12 +110,12 @@ const playClickSound = () => {
   const gain = context.createGain();
   oscillator.type = "triangle";
   oscillator.frequency.value = 420;
-  gain.gain.value = 0.0001;
+  gain.gain.value = INITIAL_GAIN_VALUE;
   oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
   gain.gain.exponentialRampToValueAtTime(0.06, context.currentTime + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.2);
+  gain.gain.exponentialRampToValueAtTime(INITIAL_GAIN_VALUE, context.currentTime + 0.2);
   oscillator.stop(context.currentTime + 0.25);
 };
 
@@ -163,7 +168,7 @@ const setupNavigation = () => {
         });
       });
     },
-    { threshold: 0.6 }
+    { threshold: SECTION_VISIBILITY_THRESHOLD }
   );
 
   sections.forEach((section) => observer.observe(section));
@@ -373,9 +378,9 @@ const setupQueue = () => {
   };
 
   const updateQueue = () => {
-    state.queue.timerSeconds += 1;
+    state.queue.elapsedSeconds += 1;
     state.queue.waitSeconds = Math.max(60, state.queue.waitSeconds - 1);
-    if (timerEl) timerEl.textContent = formatTime(state.queue.timerSeconds);
+    if (timerEl) timerEl.textContent = formatTime(state.queue.elapsedSeconds);
     if (estimateEl) estimateEl.textContent = formatTime(state.queue.waitSeconds);
     if (positionEl) positionEl.textContent = state.queue.position;
     if (progressBar) {
@@ -408,7 +413,10 @@ const setupQueue = () => {
   setInterval(updateQueue, 1000);
 
   setInterval(() => {
-    state.queue.position = Math.max(1, state.queue.position - (Math.random() > 0.6 ? 1 : 0));
+    state.queue.position = Math.max(
+      1,
+      state.queue.position - (Math.random() > QUEUE_ADVANCE_PROBABILITY ? QUEUE_POSITION_DECREMENT : 0)
+    );
     const nextUpdate = updates.shift();
     updates.push(nextUpdate);
     if (updatesContainer && updatesContainer.children.length) {
@@ -444,7 +452,9 @@ const setupCommunity = () => {
     if (!track || cards.length === 0) return;
     const gap = parseFloat(getComputedStyle(track).gap || "0");
     const cardWidth = cards[0].getBoundingClientRect().width + gap;
-    const visible = Math.max(1, Math.floor(track.parentElement.getBoundingClientRect().width / cardWidth));
+    const trackContainer = track.parentElement;
+    if (!trackContainer) return;
+    const visible = Math.max(1, Math.floor(trackContainer.getBoundingClientRect().width / cardWidth));
     const maxIndex = Math.max(0, cards.length - visible);
     state.carouselIndex = Math.min(state.carouselIndex, maxIndex);
     track.style.transform = `translateX(-${state.carouselIndex * cardWidth}px)`;
@@ -541,7 +551,7 @@ const setupInteractions = () => {
 
     switch (action) {
       case "discord":
-        window.open(DISCORD_INVITE, "_blank", "noopener");
+        window.open(DISCORD_INVITE, "_blank", "noopener,noreferrer");
         showToast("Opening Discord invite...");
         break;
       case "open-wizard":
