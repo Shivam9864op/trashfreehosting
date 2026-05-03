@@ -11,6 +11,22 @@ community-driven, and instantly addictive with neon cyberpunk aesthetics.
 - Boost Coins reward system and anti-abuse highlights
 - Premium plan layout and community discovery sections
 - Responsive, mobile-friendly layout with animated particles
+- In-browser backend simulation with:
+  - server metrics ingestion (CPU/RAM/players/state),
+  - websocket-like streams for console + queue + metrics,
+  - historical timeseries query API for charting,
+  - notification center events (provisioning/reward/abuse/system),
+  - backup/file/plugin/mod management API surfaces.
+
+## Mock API surface
+
+Open the site and use `window.blockPulseApi` from DevTools:
+
+- `blockPulseApi.metrics.ingest(payload)` / `blockPulseApi.metrics.query(metric, options)`
+- `blockPulseApi.streams.subscribeConsole(callback)` / `subscribeQueue` / `subscribeMetrics`
+- `blockPulseApi.notifications.create(...)` / `list(...)`
+- `blockPulseApi.backupManager.createBackup(reason)` / `listBackups()`
+- `blockPulseApi.artifacts.files()` / `plugins()` / `mods()`
 
 ## Run locally
 

@@ -39,6 +39,122 @@ const state = {
   },
 };
 
+class InMemoryTimeseriesStore {
+  constructor(maxPoints = 2000) {
+    this.maxPoints = maxPoints;
+    this.series = new Map();
+  }
+
+  append(metric, point) {
+    if (!this.series.has(metric)) this.series.set(metric, []);
+    const bucket = this.series.get(metric);
+    bucket.push(point);
+    if (bucket.length > this.maxPoints) {
+      bucket.splice(0, bucket.length - this.maxPoints);
+    }
+  }
+
+  query(metric, options = {}) {
+    const { from = Date.now() - 1000 * 60 * 60, to = Date.now(), resolutionMs = 5000 } = options;
+    const rows = (this.series.get(metric) || []).filter((entry) => entry.ts >= from && entry.ts <= to);
+    if (!rows.length) return [];
+    const grouped = new Map();
+    rows.forEach((row) => {
+      const key = Math.floor(row.ts / resolutionMs) * resolutionMs;
+      const current = grouped.get(key) || { ts: key, value: 0, count: 0 };
+      current.value += row.value;
+      current.count += 1;
+      grouped.set(key, current);
+    });
+    return Array.from(grouped.values())
+      .sort((a, b) => a.ts - b.ts)
+      .map((entry) => ({ ts: entry.ts, value: Number((entry.value / entry.count).toFixed(2)) }));
+  }
+}
+
+class NotificationCenter {
+  constructor() {
+    this.events = [];
+  }
+
+  emit(type, title, detail, severity = "info") {
+    const entry = { id: crypto.randomUUID(), ts: Date.now(), type, title, detail, severity };
+    this.events.unshift(entry);
+    this.events = this.events.slice(0, 250);
+    return entry;
+  }
+
+  list(options = {}) {
+    const { type, since = 0 } = options;
+    return this.events.filter((item) => item.ts >= since && (!type || item.type === type));
+  }
+}
+
+class BackupAndArtifactManager {
+  constructor() {
+    this.backups = [];
+    this.plugins = [{ id: "luckperms", enabled: true }, { id: "essentialsx", enabled: true }];
+    this.mods = [{ id: "sodium", enabled: false }, { id: "lithium", enabled: true }];
+    this.files = [{ path: "server.properties", sizeKb: 2 }, { path: "plugins/LuckPerms/config.yml", sizeKb: 8 }];
+  }
+
+  createBackup(reason = "manual") {
+    const backup = { id: `bkp_${Date.now()}`, reason, ts: Date.now(), status: "completed" };
+    this.backups.unshift(backup);
+    return backup;
+  }
+
+  listBackups() { return this.backups; }
+  listFiles() { return this.files; }
+  listPlugins() { return this.plugins; }
+  listMods() { return this.mods; }
+}
+
+const backend = {
+  metricsStore: new InMemoryTimeseriesStore(),
+  notifications: new NotificationCenter(),
+  assets: new BackupAndArtifactManager(),
+  websocket: new EventTarget(),
+};
+
+const streamEvent = (channel, payload) =>
+  backend.websocket.dispatchEvent(new CustomEvent(channel, { detail: { ...payload, ts: Date.now() } }));
+
+const ingestServerMetrics = ({ cpu, ram, players, state: status }) => {
+  const ts = Date.now();
+  backend.metricsStore.append("cpu", { ts, value: cpu });
+  backend.metricsStore.append("ram", { ts, value: ram });
+  backend.metricsStore.append("players", { ts, value: players });
+  backend.metricsStore.append("state", { ts, value: status === "online" ? 1 : 0 });
+  streamEvent("metrics", { cpu, ram, players, state: status });
+};
+
+const api = {
+  metrics: {
+    ingest: ingestServerMetrics,
+    query: (metric, options) => backend.metricsStore.query(metric, options),
+  },
+  streams: {
+    subscribeConsole: (cb) => backend.websocket.addEventListener("console", (event) => cb(event.detail)),
+    subscribeQueue: (cb) => backend.websocket.addEventListener("queue", (event) => cb(event.detail)),
+    subscribeMetrics: (cb) => backend.websocket.addEventListener("metrics", (event) => cb(event.detail)),
+  },
+  notifications: {
+    create: (type, title, detail, severity) => backend.notifications.emit(type, title, detail, severity),
+    list: (options) => backend.notifications.list(options),
+  },
+  backupManager: {
+    createBackup: (reason) => backend.assets.createBackup(reason),
+    listBackups: () => backend.assets.listBackups(),
+  },
+  artifacts: {
+    files: () => backend.assets.listFiles(),
+    plugins: () => backend.assets.listPlugins(),
+    mods: () => backend.assets.listMods(),
+  },
+};
+window.blockPulseApi = api;
+
 const particleContainer = qs("#particles");
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -199,13 +315,19 @@ const updateChart = (chart, value) => {
   fill.style.width = `${value}%`;
 };
 
-const updateDashboardMetrics = () => {
+  const updateDashboardMetrics = () => {
   const cpu = qs('[data-metric="cpu"]');
   const ram = qs('[data-metric="ram"]');
   const players = qs('[data-metric="players"]');
   if (cpu) cpu.textContent = Math.floor(38 + Math.random() * 8);
   if (ram) ram.textContent = (2.2 + Math.random() * 0.6).toFixed(1);
   if (players) players.textContent = Math.floor(24 + Math.random() * 8);
+  ingestServerMetrics({
+    cpu: Number(cpu?.textContent || 0),
+    ram: Number(ram?.textContent || 0),
+    players: Number(players?.textContent || 0),
+    state: "online",
+  });
   qsa(".chart[data-value]").forEach((chart) => {
     const value = Math.min(100, Math.max(15, Number(chart.dataset.value) + (Math.random() * 10 - 5)));
     chart.dataset.value = value.toFixed(0);
@@ -260,9 +382,11 @@ const setupDashboard = () => {
     ];
     let logIndex = 0;
     setInterval(() => {
+      const nextLine = logs[logIndex % logs.length];
       const line = document.createElement("p");
-      line.textContent = logs[logIndex % logs.length];
+      line.textContent = nextLine;
       consoleBody.appendChild(line);
+      streamEvent("console", { line: nextLine });
       if (consoleBody.children.length > 6) {
         consoleBody.removeChild(consoleBody.firstElementChild);
       }
@@ -401,6 +525,12 @@ const setupQueue = () => {
     if (progressBar) {
       const progress = Math.min(100, (1 - state.queue.position / state.queue.total) * 100 + 10);
       progressBar.style.width = `${progress.toFixed(0)}%`;
+      streamEvent("queue", {
+        position: state.queue.position,
+        total: state.queue.total,
+        waitSeconds: state.queue.waitSeconds,
+        progress: Number(progress.toFixed(0)),
+      });
     }
   };
 
@@ -610,9 +740,11 @@ const setupInteractions = () => {
         showToast("Pulse AI applied SMP + Economy preset");
         break;
       case "start-provision":
+        api.notifications.create("provisioning", "Provisioning started", "Allocating compute slot");
         wizard.startProvisioning?.();
         break;
       case "finish-provision":
+        api.notifications.create("provisioning", "Provisioning completed", "Server is now online", "success");
         closeModal(qs("#server-modal"));
         dashboard.setTabAndScroll?.("overview");
         showToast("Server online · Opening dashboard");
@@ -638,6 +770,7 @@ const setupInteractions = () => {
         state.reward.coins += 180;
         state.reward.xp = Math.min(state.reward.xpMax, state.reward.xp + 120);
         rewards.updateUI?.();
+        api.notifications.create("reward", "Reward claimed", "+180 Boost Coins and +120 XP", "success");
         openModal("reward-modal");
         break;
       case "open-settings":
@@ -647,6 +780,7 @@ const setupInteractions = () => {
         openModal("compare-modal");
         break;
       case "upgrade-plan":
+        api.notifications.create("system", "Upgrade requested", `Plan: ${actionEl.dataset.plan}`);
         showToast(`Upgrading to ${actionEl.dataset.plan}...`);
         break;
       case "ask-ai":
@@ -713,5 +847,8 @@ document.addEventListener("DOMContentLoaded", () => {
   setupQueue();
   setupPricing();
   setupCommunity();
+  api.notifications.create("system", "Dashboard connected", "Live metric ingestion active", "success");
+  api.notifications.create("abuse", "Abuse guard", "No suspicious automation detected");
+  api.backupManager.createBackup("startup");
   window.addEventListener("resize", createParticles);
 });
