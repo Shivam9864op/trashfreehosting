@@ -15,3 +15,29 @@ community-driven, and instantly addictive with neon cyberpunk aesthetics.
 ## Run locally
 
 Open `index.html` in your browser.
+
+## Mini-game module + reward gateway
+
+### Frontend module
+- `frontend/minigame/client.js` implements an endless runner/shooter loop with:
+  - auto-forward progression speed
+  - left/right movement and space-to-shoot
+  - wave spawning, pickups, score, and score multiplier decay
+  - run summary emission with detailed action telemetry
+
+### Backend gateway
+- `backend/minigameGateway.js` provides:
+  - `POST /api/minigame/session` for signed session token issuance
+  - `POST /api/minigame/run-summary` for anti-tamper validation and reward payout
+  - `GET /api/minigame/leaderboard` for season-windowed leaderboard with anti-cheat filters
+
+Validation checks include score sanity ceilings, run duration bounds, and action frequency thresholds.
+Rewards include coins/XP/temporary boosts with daily caps.
+
+Run backend locally:
+
+```bash
+cd backend
+npm install
+npm start
+```
