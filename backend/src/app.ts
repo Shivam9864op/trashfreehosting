@@ -8,6 +8,7 @@ import { apiRateLimiter, corsMiddleware, helmetMiddleware } from './middleware/s
 import { captchaGate } from './middleware/captcha.js';
 import { v1Router } from './routes/v1.js';
 import { openApiSpec } from './docs/openapi.js';
+import { logger } from './config/logger.js';
 
 export function createApp() {
   const app = express();
@@ -23,6 +24,11 @@ export function createApp() {
   app.get('/health', (_req, res) => res.json({ status: 'ok' }));
   app.use(DOCS_PATH, swaggerUi.serve, swaggerUi.setup(openApiSpec));
   app.use(API_PREFIX, v1Router);
+
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    logger.error({ err }, 'API error');
+    res.status(err?.status || 500).json({ error: err?.message || 'Internal server error' });
+  });
 
   return app;
 }

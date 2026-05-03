@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { env } from '../../config/env.js';
+import { logger } from '../../config/logger.js';
 import { emitConsole } from '../../sockets/index.js';
 
 const appApi = axios.create({
@@ -17,7 +18,6 @@ const clientApi = axios.create({
 const cleanName = (name: string) => name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().slice(0, 32);
 
 export async function listServers() { const { data } = await appApi.get('/servers'); return data.data ?? []; }
-
 export async function getServer(id: string) { const { data } = await appApi.get(`/servers/${id}`); return data.attributes; }
 
 export async function createServer(payload: { name: string; ramMb: number; diskMb?: number; cpu?: number }) {
@@ -38,15 +38,47 @@ export async function createServer(payload: { name: string; ramMb: number; diskM
     feature_limits: { databases: 1, allocations: 1, backups: 2 },
     allocation: { default: env.ALLOC_ID },
   };
-  const { data } = await appApi.post('/servers', body);
-  return data.attributes;
+
+  try {
+    const { data } = await appApi.post('/servers', body);
+    return data.attributes;
+  } catch (error) {
+    logger.error({ error }, 'Pterodactyl provisioning failed');
+    throw error;
+  }
 }
 
 export async function powerServer(id: string, signal: 'start' | 'stop' | 'restart' | 'kill') {
-  await clientApi.post(`/servers/${id}/power`, { signal });
-  return { id, signal };
+  try {
+    await clientApi.post(`/servers/${id}/power`, { signal });
+    emitConsole(id, `[power] ${signal} requested`);
+    return { id, signal };
+  } catch (error) {
+    logger.error({ error, id, signal }, 'Pterodactyl power API failed');
+    throw error;
+  }
 }
 
 export async function deleteServer(id: string) { await appApi.delete(`/servers/${id}`); return { id, deleted: true }; }
-export async function sendCommand(id: string, command: string) { await clientApi.post(`/servers/${id}/command`, { command }); return { ok: true }; }
-export async function resources(id: string) { const { data } = await clientApi.get(`/servers/${id}/resources`); emitConsole(id, `[stats] ${JSON.stringify(data.attributes.resources)}`); return data.attributes; }
+
+export async function sendCommand(id: string, command: string) {
+  try {
+    await clientApi.post(`/servers/${id}/command`, { command });
+    emitConsole(id, `> ${command}`);
+    return { ok: true };
+  } catch (error) {
+    logger.error({ error, id, command }, 'Pterodactyl command API failed');
+    throw error;
+  }
+}
+
+export async function resources(id: string) {
+  try {
+    const { data } = await clientApi.get(`/servers/${id}/resources`);
+    emitConsole(id, `[stats] ${JSON.stringify(data.attributes.resources)}`);
+    return data.attributes;
+  } catch (error) {
+    logger.error({ error, id }, 'Pterodactyl resources API failed');
+    throw error;
+  }
+}
