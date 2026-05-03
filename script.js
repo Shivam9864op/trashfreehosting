@@ -148,6 +148,7 @@ const state = {
     edition: "Java",
     type: "SMP",
     ram: 4,
+    name: "",
     provisioning: false,
   },
   soundEnabled: true,
@@ -586,6 +587,8 @@ const setupWizard = () => {
   const reviewEdition = qs("[data-review-edition]", modal);
   const reviewType = qs("[data-review-type]", modal);
   const reviewRam = qs("[data-review-ram]", modal);
+  const reviewName = qs("[data-review-name]", modal);
+  const nameInput = qs("#server-name", modal);
   const provisionStatus = qs("[data-provision-status]", modal);
   const provisionProgress = qs("[data-provision-progress]", modal);
   const provisionList = qsa(".provision-list li", modal);
@@ -600,6 +603,7 @@ const setupWizard = () => {
     if (reviewEdition) reviewEdition.textContent = state.wizard.edition;
     if (reviewType) reviewType.textContent = state.wizard.type;
     if (reviewRam) reviewRam.textContent = `${state.wizard.ram}GB`;
+    if (reviewName) reviewName.textContent = state.wizard.name || "Not set";
 
     const backButton = qs('[data-action="wizard-back"]', modal);
     const nextButton = qs('[data-action="wizard-next"]', modal);
@@ -632,6 +636,11 @@ const setupWizard = () => {
       aiRecommendation?.classList.add("show");
     }
     selectOption(stepNumber, card.dataset.option);
+    updateWizard();
+  });
+
+  nameInput?.addEventListener("input", (event) => {
+    state.wizard.name = event.target.value.trim();
     updateWizard();
   });
 
@@ -895,6 +904,7 @@ const setupInteractions = () => {
         scrollToTarget(actionEl.dataset.target);
         break;
       case "wizard-next":
+        if (state.wizard.step === 3 && !state.wizard.name) { showToast("Server name is required"); break; }
         if (state.wizard.step < 4) {
           state.wizard.step += 1;
           wizard.updateWizard?.();
@@ -916,14 +926,14 @@ case "start-provision":
 
     wizard.startProvisioning?.();
 
-    fetch("http://192.168.1.13:3001/create-server", {
+    fetch("/api/v1/servers/create-server", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            name: "server-" + Math.floor(Math.random() * 9999),
-            ram: state.wizard.ram * 1024,
+            name: state.wizard.name,
+            ramMb: state.wizard.ram * 1024,
             edition: state.wizard.edition,
             type: state.wizard.type
         })
