@@ -795,8 +795,9 @@
               </div>
             </div>
             <div class="wizard-step" data-step="3">
-              <h3>Allocate RAM</h3>
-              <p class="muted">Adjust memory for your player count.</p>
+              <h3>Name & allocate RAM</h3>
+              <p class="muted">Choose a name and adjust memory for your player count.</p>
+              <input id="server-name" type="text" maxlength="32" placeholder="e.g. NeonSMP" class="wizard-name-input" required />
               <div class="slider-wrap">
                 <input
                   type="range"
@@ -823,6 +824,10 @@
                 <div>
                   <span class="label">Type</span>
                   <strong data-review-type>SMP</strong>
+                </div>
+                <div>
+                  <span class="label">Name</span>
+                  <strong data-review-name>NeonSMP</strong>
                 </div>
                 <div>
                   <span class="label">RAM</span>

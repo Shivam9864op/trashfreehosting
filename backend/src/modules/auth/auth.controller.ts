@@ -1,45 +1,41 @@
 import { Request, Response } from 'express';
-import { createSession, createUser, findUserByEmail, isActiveSession, revokeSession, rotateSession } from './auth.store.js';
-import { JwtClaims, signAccessToken, signRefreshToken, verifyRefreshToken } from './auth.tokens.js';
+import jwt from 'jsonwebtoken';
+import { env } from '../../config/env.js';
+import { getDb } from '../../config/db.js';
 
-function issue(userId: string, email: string, tokenId: string) {
-  const claims: JwtClaims = { sub: userId, email, tokenId };
-  return { accessToken: signAccessToken(claims), refreshToken: signRefreshToken(claims) };
+type DiscordUser = { id: string; username: string; avatar: string | null };
+
+const sign = (u: { id: string; username: string; discordId: string }) => jwt.sign({ sub: u.id, username: u.username, discordId: u.discordId }, env.JWT_ACCESS_SECRET, { expiresIn: env.JWT_ACCESS_EXPIRES_IN });
+
+export function discordLoginUrl(_req: Request, res: Response) {
+  if (!env.DISCORD_CLIENT_ID || !env.DISCORD_REDIRECT_URI) return res.status(500).json({ error: 'Discord OAuth not configured' });
+  const url = new URL('https://discord.com/api/oauth2/authorize');
+  url.searchParams.set('client_id', env.DISCORD_CLIENT_ID);
+  url.searchParams.set('redirect_uri', env.DISCORD_REDIRECT_URI);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'identify');
+  res.json({ url: url.toString() });
 }
 
-export function register(req: Request, res: Response) {
-  const { email, password } = req.body;
-  if (findUserByEmail(email)) return res.status(409).json({ message: 'User already exists' });
-  const user = createUser(email, password);
-  const session = createSession(user.id);
-  return res.status(201).json(issue(user.id, user.email, session.tokenId));
+export async function discordCallback(req: Request, res: Response) {
+  const { code } = req.query;
+  if (!code || typeof code !== 'string') return res.status(400).json({ error: 'Missing code' });
+  const tokenRes = await fetch('https://discord.com/api/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: env.DISCORD_CLIENT_ID ?? '', client_secret: env.DISCORD_CLIENT_SECRET ?? '', grant_type: 'authorization_code', code, redirect_uri: env.DISCORD_REDIRECT_URI ?? '' }) });
+  const tokenJson = await tokenRes.json() as { access_token: string };
+  const userRes = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${tokenJson.access_token}` } });
+  const discordUser = await userRes.json() as DiscordUser;
+  const db = await getDb();
+  const users = db.collection('users');
+  await users.updateOne({ discordId: discordUser.id }, { $set: { username: discordUser.username, avatar: discordUser.avatar, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date(), coins: 0, servers: [] } }, { upsert: true });
+  const user = await users.findOne({ discordId: discordUser.id });
+  const token = sign({ id: String(user!._id), username: discordUser.username, discordId: discordUser.id });
+  res.redirect(`${env.FRONTEND_ORIGIN}?token=${encodeURIComponent(token)}`);
 }
-export function login(req: Request, res: Response) {
-  const { email, password } = req.body;
-  const user = findUserByEmail(email);
-  if (!user || user.password !== password) return res.status(401).json({ message: 'Invalid credentials' });
-  const session = createSession(user.id);
-  return res.json(issue(user.id, user.email, session.tokenId));
+
+export async function me(req: Request, res: Response) {
+  const user = await (await getDb()).collection('users').findOne({ _id: new (await import('mongodb')).ObjectId(req.user!.sub) });
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  res.json({ username: user.username, avatar: user.avatar, coins: user.coins ?? 0, serverCount: Array.isArray(user.servers) ? user.servers.length : 0, discordId: user.discordId });
 }
-export function refresh(req: Request, res: Response) {
-  try {
-    const { refreshToken } = req.body;
-    const claims = verifyRefreshToken(refreshToken);
-    if (!isActiveSession(claims.tokenId)) return res.status(401).json({ message: 'Refresh token revoked' });
-    const next = rotateSession(claims.tokenId, claims.sub);
-    if (!next) return res.status(401).json({ message: 'Invalid session' });
-    return res.json(issue(claims.sub, claims.email, next.tokenId));
-  } catch {
-    return res.status(401).json({ message: 'Invalid refresh token' });
-  }
-}
-export function logout(req: Request, res: Response) {
-  try {
-    const { refreshToken } = req.body;
-    const claims = verifyRefreshToken(refreshToken);
-    revokeSession(claims.tokenId);
-    return res.status(204).send();
-  } catch {
-    return res.status(204).send();
-  }
-}
+
+export function logout(_req: Request, res: Response) { res.status(204).send(); }
