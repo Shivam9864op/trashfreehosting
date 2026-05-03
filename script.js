@@ -1,3 +1,4 @@
+alert("script loaded");
 const API_BASE = 'https://hosting.trashmcpe.com/api';
 const SOCKET_BASE = 'https://hosting.trashmcpe.com';
 
