@@ -912,9 +912,33 @@ const setupInteractions = () => {
         wizard.updateWizard?.();
         showToast("Pulse AI applied SMP + Economy preset");
         break;
-      case "start-provision":
-        wizard.startProvisioning?.();
-        break;
+case "start-provision":
+
+    wizard.startProvisioning?.();
+
+    fetch("http://192.168.1.13:3001/create-server", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            name: "shivamSMP",
+            ram: state.wizard.ram * 1024,
+            edition: state.wizard.edition,
+            type: state.wizard.type
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log(data);
+        showToast("REAL server created successfully");
+    })
+    .catch(err => {
+        console.error(err);
+        showToast("Backend connection failed");
+    });
+
+    break;
       case "finish-provision":
         closeModal(qs("#server-modal"));
         dashboard.setTabAndScroll?.("overview");
