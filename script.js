@@ -926,11 +926,12 @@ case "start-provision":
 
     wizard.startProvisioning?.();
 
-    fetch("http://forward-chevrolet.with.playit.plus:1025/api/v1/servers/create-server", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+fetch("http://forward-chevrolet.with.playit.plus:1025/api/v1/servers/create-server", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/json"
+    },
+    credentials: "include",
         body: JSON.stringify({
             name: state.wizard.name,
             ramMb: state.wizard.ram * 1024,
