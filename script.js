@@ -926,7 +926,7 @@ case "start-provision":
 
     wizard.startProvisioning?.();
 
-    fetch("/api/v1/servers/create-server", {
+    fetch("http://forward-chevrolet.with.playit.plus:1025/api/v1/servers/create-server", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
