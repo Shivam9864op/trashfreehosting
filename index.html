@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BlockPulse — AI Powered Free Minecraft Hosting</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+    <div class="bg-orb orb-c"></div>
+    <div id="particles"></div>
+
+    <header class="site-header">
+      <div class="logo">
+        <span class="logo-mark">BP</span>
+        <span>BlockPulse</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#boost">Boost Coins</a>
+        <a href="#community">Community</a>
+        <a href="#pricing">Premium</a>
+      </nav>
+      <div class="header-actions">
+        <button class="btn ghost">Join Discord</button>
+        <button class="btn primary">Create Free Server</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-content">
+          <div class="hero-badges">
+            <span class="pill">AI Setup Wizard</span>
+            <span class="pill">Java + Bedrock</span>
+            <span class="pill">Instant Launch</span>
+          </div>
+          <h1>Launch Your Minecraft Server Instantly</h1>
+          <p class="subtitle">
+            Free hosting, AI setup, rewards, backups, and premium upgrades. Create a
+            world in under 30 seconds with smart presets, auto-optimization, and a
+            community built for creators.
+          </p>
+          <div class="hero-actions">
+            <button class="btn primary">Create Free Server</button>
+            <button class="btn ghost">Join Discord</button>
+          </div>
+          <div class="hero-stats">
+            <div class="stat-card glass">
+              <p class="stat-label">Servers Online</p>
+              <h3 data-count="48213">0</h3>
+              <span class="stat-tag">Live</span>
+            </div>
+            <div class="stat-card glass">
+              <p class="stat-label">Avg Setup</p>
+              <h3 data-count="24">0</h3>
+              <span class="stat-tag">Seconds</span>
+            </div>
+            <div class="stat-card glass">
+              <p class="stat-label">Boost Coins Earned</p>
+              <h3 data-count="920000">0</h3>
+              <span class="stat-tag">This Week</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="server-stack">
+            <div class="server-card glass floating">
+              <div class="card-header">
+                <span class="chip green">Online</span>
+                <span class="chip">Java</span>
+              </div>
+              <h4>NeonSMP</h4>
+              <p>AI optimized · 2.5GB RAM · 32 players</p>
+              <div class="progress">
+                <div class="progress-bar" style="width: 62%"></div>
+              </div>
+              <div class="card-footer">
+                <span>Auto-Start</span>
+                <span>Boosted</span>
+              </div>
+            </div>
+            <div class="server-card glass floating delay">
+              <div class="card-header">
+                <span class="chip purple">Queued</span>
+                <span class="chip">Bedrock</span>
+              </div>
+              <h4>SkyRaid</h4>
+              <p>Template: PvP · 1.8GB RAM · 22 players</p>
+              <div class="progress">
+                <div class="progress-bar" style="width: 35%"></div>
+              </div>
+              <div class="card-footer">
+                <span>Queue Skip Ready</span>
+                <span>Boost Coins +220</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="live-status glass">
+            <div class="status-header">
+              <h4>Live Status Preview</h4>
+              <span class="pulse-dot"></span>
+            </div>
+            <ul>
+              <li>
+                <span>PulseNetwork</span>
+                <span class="status online">Online</span>
+              </li>
+              <li>
+                <span>EmeraldRealm</span>
+                <span class="status starting">Starting</span>
+              </li>
+              <li>
+                <span>NovaMinigames</span>
+                <span class="status online">Online</span>
+              </li>
+              <li>
+                <span>PixelForge</span>
+                <span class="status queued">Queued</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="ai-widget glass">
+            <div class="ai-header">
+              <span class="chip cyan">AI Assistant</span>
+              <span class="mono">v2.7</span>
+            </div>
+            <h4>Need a setup?</h4>
+            <p>Ask Pulse AI to configure plugins, mods, and game rules for you.</p>
+            <button class="btn ghost small">Start Setup</button>
+          </div>
+
+          <div class="floating-widgets">
+            <div class="widget glass">
+              <p>Auto-Start</p>
+              <strong>When player joins</strong>
+            </div>
+            <div class="widget glass">
+              <p>Backups</p>
+              <strong>Instant Restore</strong>
+            </div>
+            <div class="widget glass">
+              <p>Discord</p>
+              <strong>Live Alerts</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" class="panel">
+        <div class="section-title">
+          <p class="eyebrow">Core Features</p>
+          <h2>Everything you need, nothing you don’t.</h2>
+          <p>
+            BlockPulse makes hosting feel effortless with AI-assisted setup,
+            instant launches, and templates that feel like cheat codes for creators.
+          </p>
+        </div>
+        <div class="feature-grid">
+          <div class="feature-card glass">
+            <h3>One-click server creation</h3>
+            <p>Spin up Java or Bedrock servers instantly with a fast setup wizard.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>AI plugin installer</h3>
+            <p>Describe your vibe and let AI install the perfect plugin stack.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>AI config generator</h3>
+            <p>Auto-tuned configs for performance, PvP balance, and economy.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>Server templates</h3>
+            <p>SMP, PvP, Lifesteal, Modded, Minigames, Hardcore — ready to go.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>Backups + restore</h3>
+            <p>Unlimited snapshots on premium, plus instant restore on free.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>Auto-start & queue</h3>
+            <p>Sleep servers auto-start when players join. Skip queues with Boost Coins.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>Console + logs</h3>
+            <p>Live console, performance alerts, and readable log search.</p>
+          </div>
+          <div class="feature-card glass">
+            <h3>Community discovery</h3>
+            <p>Find trending servers, feature creators, and join events.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard" class="panel split">
+        <div class="section-title">
+          <p class="eyebrow">Dashboard UI</p>
+          <h2>Pterodactyl power, redesigned for Gen-Z.</h2>
+          <p>
+            A glassmorphism control center with glowing stats, AI assistant, reward
+            widgets, and real-time graphs.
+          </p>
+          <div class="dash-tags">
+            <span class="pill">Live Console</span>
+            <span class="pill">AI Sidebar</span>
+            <span class="pill">Reward Streaks</span>
+            <span class="pill">Auto-Optimize</span>
+          </div>
+        </div>
+        <div class="dashboard glass">
+          <div class="dashboard-header">
+            <div>
+              <h3>NeonSMP Control</h3>
+              <p>Started 12s ago · 3 Boosts active</p>
+            </div>
+            <button class="btn primary small">Launch Console</button>
+          </div>
+          <div class="dashboard-grid">
+            <div class="dash-card glass">
+              <p>CPU Usage</p>
+              <h4>42%</h4>
+              <div class="chart"></div>
+            </div>
+            <div class="dash-card glass">
+              <p>RAM</p>
+              <h4>2.5GB / 4GB</h4>
+              <div class="chart alt"></div>
+            </div>
+            <div class="dash-card glass">
+              <p>Players Online</p>
+              <h4>28 / 40</h4>
+              <div class="chart mini"></div>
+            </div>
+            <div class="dash-card glass">
+              <p>Boost Coins</p>
+              <h4>1,240</h4>
+              <button class="btn ghost small">Spend Coins</button>
+            </div>
+          </div>
+          <div class="dashboard-footer">
+            <div class="console glass">
+              <div class="console-header">
+                <span>Live Console</span>
+                <span class="mono">/status</span>
+              </div>
+              <div class="console-body">
+                <p>[INFO] Server ready · 20 TPS</p>
+                <p>[AI] Recommended plugin: CoreProtect</p>
+                <p>[BOOST] RAM +512MB active for 5h 44m</p>
+              </div>
+            </div>
+            <div class="ai-side glass">
+              <h4>Pulse AI</h4>
+              <p>Ask me to install mods, balance economy, or optimize lag.</p>
+              <button class="btn primary small">Ask AI</button>
+              <div class="ai-task">
+                <span>Auto-queue skip</span>
+                <span class="chip green">Active</span>
+              </div>
+              <div class="ai-task">
+                <span>Nightly backup</span>
+                <span class="chip">Scheduled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="boost" class="panel">
+        <div class="section-title">
+          <p class="eyebrow">Boost Coins</p>
+          <h2>Play, earn, and power up your server.</h2>
+          <p>
+            Earn Boost Coins through real engagement — no fake AFK farming. We use
+            captcha checks, rate limits, and anti-bot logic to keep it fair.
+          </p>
+        </div>
+        <div class="boost-grid">
+          <div class="boost-card glass">
+            <h3>Earn Coins</h3>
+            <ul>
+              <li>Daily logins & streaks</li>
+              <li>Server activity & uptime</li>
+              <li>Inviting friends & referrals</li>
+              <li>Discord missions & community events</li>
+              <li>Rewarded ads & weekly quests</li>
+            </ul>
+          </div>
+          <div class="boost-card glass">
+            <h3>Spend Coins</h3>
+            <ul>
+              <li>+512MB RAM for 6 hours</li>
+              <li>Queue skip for peak times</li>
+              <li>Extra backups and storage</li>
+              <li>Boosted startup speed</li>
+              <li>Player slot expansion</li>
+            </ul>
+          </div>
+          <div class="boost-card glass">
+            <h3>Example Boosts</h3>
+            <div class="boost-example">
+              <p>Watch a rewarded ad</p>
+              <span>+512MB RAM · 6h</span>
+            </div>
+            <div class="boost-example">
+              <p>Daily streak complete</p>
+              <span>Queue skip</span>
+            </div>
+            <div class="boost-example">
+              <p>Invite friends</p>
+              <span>+5GB storage</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">
+          <p class="eyebrow">Smart Monetization</p>
+          <h2>Ads that feel native, never spammy.</h2>
+          <p>
+            Clean ad placements in the dashboard sidebar, queue screens, and
+            sponsored cards keep free hosting sustainable without interrupting play.
+          </p>
+        </div>
+        <div class="monetization-grid">
+          <div class="feature-card glass">Dashboard sidebar ads</div>
+          <div class="feature-card glass">Rewarded boosts</div>
+          <div class="feature-card glass">Queue/wait screens</div>
+          <div class="feature-card glass">Sponsored creator cards</div>
+          <div class="feature-card glass">Upgrade flow & tutorial pages</div>
+        </div>
+      </section>
+
+      <section id="community" class="panel split">
+        <div class="section-title">
+          <p class="eyebrow">Community</p>
+          <h2>Discover worlds, creators, and seasonal events.</h2>
+          <p>
+            Leaderboards, showcases, and trending servers make the platform feel
+            alive and social.
+          </p>
+          <div class="community-actions">
+            <button class="btn primary">Join the Community</button>
+            <button class="btn ghost">Explore Servers</button>
+          </div>
+        </div>
+        <div class="community-grid">
+          <div class="community-card glass">
+            <h3>Trending Now</h3>
+            <ul>
+              <li>SolarCraft · SMP</li>
+              <li>ForgeRush · Modded</li>
+              <li>SkyVortex · Minigames</li>
+            </ul>
+          </div>
+          <div class="community-card glass">
+            <h3>Featured Creators</h3>
+            <ul>
+              <li>LumaBuilds</li>
+              <li>PixelQueen</li>
+              <li>BlockBard</li>
+            </ul>
+          </div>
+          <div class="community-card glass">
+            <h3>Seasonal Events</h3>
+            <ul>
+              <li>Cyber Siege Weekend</li>
+              <li>Build Battle League</li>
+              <li>Creator Spotlight</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="pricing" class="panel">
+        <div class="section-title">
+          <p class="eyebrow">Premium Plans</p>
+          <h2>Upgrade when you want more power.</h2>
+          <p>
+            Premium removes queues, unlocks always-online mode, and adds boosted
+            performance with priority support.
+          </p>
+        </div>
+        <div class="pricing-grid">
+          <div class="pricing-card glass">
+            <h3>Free</h3>
+            <p class="price">$0</p>
+            <ul>
+              <li>Java + Bedrock</li>
+              <li>AI setup assistant</li>
+              <li>Boost Coins</li>
+              <li>Community discovery</li>
+            </ul>
+            <button class="btn ghost">Start Free</button>
+          </div>
+          <div class="pricing-card glass highlight">
+            <h3>Pulse Pro</h3>
+            <p class="price">$6/mo</p>
+            <ul>
+              <li>No queue</li>
+              <li>More RAM & storage</li>
+              <li>Unlimited backups</li>
+              <li>Custom domains</li>
+            </ul>
+            <button class="btn primary">Go Pro</button>
+          </div>
+          <div class="pricing-card glass">
+            <h3>Pulse Elite</h3>
+            <p class="price">$12/mo</p>
+            <ul>
+              <li>Always-online mode</li>
+              <li>Advanced mod uploads</li>
+              <li>Priority CPU</li>
+              <li>Premium support</li>
+            </ul>
+            <button class="btn ghost">Go Elite</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel cta">
+        <div>
+          <h2>Create your server in 30 seconds.</h2>
+          <p>
+            Start free, grow with Boost Coins, and build a community around your
+            world.
+          </p>
+        </div>
+        <button class="btn primary">Create Free Server</button>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <div class="logo">
+          <span class="logo-mark">BP</span>
+          <span>BlockPulse</span>
+        </div>
+        <p>AI Powered Free Minecraft Hosting for the next generation.</p>
+      </div>
+      <div class="footer-links">
+        <a href="#">Status</a>
+        <a href="#">Blog</a>
+        <a href="#">Support</a>
+        <a href="#">Privacy</a>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
