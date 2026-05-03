@@ -12,6 +12,14 @@ const QUEUE_POSITION_DECREMENT = 1;
 const QUEUE_LOADING_DELAY = 1200;
 const PROVISION_STEP_DELAY = 1200;
 const BASE_COIN_AMOUNT = 1060;
+const LEVEL_DAILY_XP_CAP = 1200;
+
+const ACTIVITY_EVENTS = {
+  TUTORIAL_READ: "tutorial_read",
+  MISSION_COMPLETE: "mission_complete",
+  INVITE_CONVERTED: "invite_converted",
+  SERVER_UPTIME_GOAL_MET: "server_uptime_goal_met",
+};
 
 const state = {
   wizard: {
@@ -41,6 +49,122 @@ const state = {
 
 const particleContainer = qs("#particles");
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const createRewardEngine = () => {
+  const createEventBus = () => {
+    const handlers = new Map();
+    return {
+      on(eventName, listener) {
+        const listeners = handlers.get(eventName) || [];
+        listeners.push(listener);
+        handlers.set(eventName, listeners);
+      },
+      emit(eventName, payload) {
+        (handlers.get(eventName) || []).forEach((listener) => listener(payload));
+      },
+    };
+  };
+
+  const streakService = {
+    decayDays: 2,
+    graceHours: 18,
+    updateStreak(lastActivityAt, now = Date.now()) {
+      const elapsedHours = (now - lastActivityAt) / (1000 * 60 * 60);
+      if (elapsedHours <= 24 + this.graceHours) return 1;
+      if (elapsedHours <= this.decayDays * 24) return 0;
+      return -1;
+    },
+  };
+
+  const missionService = {
+    tierRules: {
+      common: { xp: 75, cooldownHours: 4, weight: 55 },
+      rare: { xp: 180, cooldownHours: 10, weight: 30 },
+      epic: { xp: 320, cooldownHours: 20, weight: 12 },
+      legendary: { xp: 600, cooldownHours: 36, weight: 3 },
+    },
+  };
+
+  const xpService = {
+    dailyCap: LEVEL_DAILY_XP_CAP,
+    earnedToday: 0,
+    levelFromTotalXp(totalXp) {
+      const curve = [0, 400, 950, 1700, 2700, 4000, 5600, 7600, 10000];
+      const index = curve.findIndex((mark) => totalXp < mark);
+      return index === -1 ? curve.length : Math.max(1, index);
+    },
+    grant(xp) {
+      const available = Math.max(0, this.dailyCap - this.earnedToday);
+      const granted = Math.min(available, xp);
+      this.earnedToday += granted;
+      return granted;
+    },
+  };
+
+  const achievementService = {
+    thresholds: [1, 3, 7, 14, 30],
+    unlocked: new Set(),
+    evaluate(streakCount) {
+      this.thresholds.forEach((threshold) => {
+        if (streakCount >= threshold) this.unlocked.add(`streak_${threshold}`);
+      });
+      return [...this.unlocked];
+    },
+  };
+
+  const battlePassService = {
+    seasonLengthDays: 90,
+    archive: [],
+    seasonStartedAt: Date.now(),
+    resetIfExpired(progressState, now = Date.now()) {
+      const elapsed = (now - this.seasonStartedAt) / (1000 * 60 * 60 * 24);
+      if (elapsed < this.seasonLengthDays) return progressState;
+      this.archive.push({
+        endedAt: now,
+        snapshot: { ...progressState },
+      });
+      this.seasonStartedAt = now;
+      return { tier: 1, xp: 0, claimedRewards: [] };
+    },
+  };
+
+  const rewardConversionRules = {
+    tutorial_read: { coins: 40, boostsHours: 0, cosmeticShards: 0 },
+    mission_complete: { coins: 110, boostsHours: 1, cosmeticShards: 0 },
+    invite_converted: { coins: 200, boostsHours: 3, cosmeticShards: 1 },
+    server_uptime_goal_met: { coins: 160, boostsHours: 2, cosmeticShards: 1 },
+  };
+
+  const eventBus = createEventBus();
+  const handlers = {
+    [ACTIVITY_EVENTS.TUTORIAL_READ]: () => 65,
+    [ACTIVITY_EVENTS.MISSION_COMPLETE]: (payload) => missionService.tierRules[payload?.tier || "common"].xp,
+    [ACTIVITY_EVENTS.INVITE_CONVERTED]: () => 250,
+    [ACTIVITY_EVENTS.SERVER_UPTIME_GOAL_MET]: () => 210,
+  };
+
+  const processActivityEvent = (eventName, payload = {}) => {
+    const xpRaw = handlers[eventName]?.(payload) || 0;
+    const grantedXp = xpService.grant(xpRaw);
+    const conversion = rewardConversionRules[eventName] || { coins: 0, boostsHours: 0, cosmeticShards: 0 };
+    return { grantedXp, conversion, level: xpService.levelFromTotalXp(payload.totalXp || 0) };
+  };
+
+  eventBus.on("activity", ({ type, payload }) => processActivityEvent(type, payload));
+
+  return {
+    eventBus,
+    streakService,
+    missionService,
+    xpService,
+    achievementService,
+    battlePassService,
+    rewardConversionRules,
+    processActivityEvent,
+  };
+};
+
+const rewardEngine = createRewardEngine();
 
 const createParticles = () => {
   if (!particleContainer) return;
@@ -634,9 +758,14 @@ const setupInteractions = () => {
         showToast("Queue skip applied · Position boosted");
         break;
       case "claim-reward":
+        const rewardResult = rewardEngine.processActivityEvent(ACTIVITY_EVENTS.MISSION_COMPLETE, {
+          tier: "common",
+          totalXp: state.reward.xp + 120,
+        });
+        rewardEngine.achievementService.evaluate(state.reward.streak + 1);
         state.reward.streak += 1;
-        state.reward.coins += 180;
-        state.reward.xp = Math.min(state.reward.xpMax, state.reward.xp + 120);
+        state.reward.coins += 180 + rewardResult.conversion.coins;
+        state.reward.xp = Math.min(state.reward.xpMax, state.reward.xp + rewardResult.grantedXp);
         rewards.updateUI?.();
         openModal("reward-modal");
         break;
