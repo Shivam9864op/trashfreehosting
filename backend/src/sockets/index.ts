@@ -1,17 +1,28 @@
 import { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
+import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
 
 let io: Server | null = null;
 
 export function initSocketServer(httpServer: HttpServer) {
   io = new Server(httpServer, {
     path: '/socket.io',
-    cors: { origin: [/^https:\/\/.+github\.io$/, 'https://hosting.trashmcpe.com'], credentials: false },
+    cors: { origin: env.corsOrigins, credentials: true },
   });
 
   io.on('connection', (socket) => {
+    logger.info({ id: socket.id }, 'Socket connected');
+
     socket.on('console:subscribe', (serverIdentifier: string) => {
-      if (typeof serverIdentifier === 'string') socket.join(`console:${serverIdentifier}`);
+      if (typeof serverIdentifier === 'string' && serverIdentifier.trim()) {
+        socket.join(`console:${serverIdentifier}`);
+        logger.info({ socketId: socket.id, room: `console:${serverIdentifier}` }, 'Socket joined console room');
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
+      logger.warn({ socketId: socket.id, reason }, 'Socket disconnected');
     });
   });
 
