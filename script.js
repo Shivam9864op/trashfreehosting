@@ -1084,6 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("resize", createParticles);
 });
 const socket = io("http://forward-chevrolet.with.playit.plus:1025");
+const serverId = "test";
 socket.on(`console-${serverId}`, (data) => {
 
     console.log(data.log);
