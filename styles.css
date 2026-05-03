@@ -13,7 +13,6 @@
   --glow: rgba(34, 211, 238, 0.55);
   --shadow: 0 18px 60px rgba(15, 23, 42, 0.45);
   --radius: 18px;
-  --nav-panel-max-height: 80vh;
 }
 
 * {
@@ -1468,7 +1467,7 @@ a {
     transition: all 0.3s ease;
   }
   .site-header.menu-open .nav-panel {
-    max-height: var(--nav-panel-max-height);
+    max-height: 80vh;
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);

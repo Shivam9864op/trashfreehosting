@@ -10,6 +10,8 @@ const AUDIO_RELEASE_TIME = 0.2;
 const QUEUE_ADVANCE_PROBABILITY = 0.6;
 const QUEUE_POSITION_DECREMENT = 1;
 const QUEUE_LOADING_DELAY = 1200;
+const PROVISION_STEP_DELAY = 1200;
+const BASE_COIN_AMOUNT = 1060;
 
 const state = {
   wizard: {
@@ -370,7 +372,7 @@ const setupWizard = () => {
         if (finishButton) finishButton.disabled = false;
         state.wizard.provisioning = false;
       }
-    }, 1200);
+    }, PROVISION_STEP_DELAY);
     updateWizard();
   };
 
@@ -473,7 +475,8 @@ const setupCommunity = () => {
   const updateCarousel = () => {
     if (!track || cards.length === 0) return;
     if (!stepSize) calculateStep();
-    const cardWidth = stepSize || cards[0].getBoundingClientRect().width;
+    if (!stepSize) return;
+    const cardWidth = stepSize;
     const trackContainer = track.parentElement;
     if (!trackContainer) return;
     const visible = Math.max(1, Math.floor(trackContainer.getBoundingClientRect().width / cardWidth));
@@ -519,7 +522,7 @@ const setupRewards = () => {
     if (boostStreak) boostStreak.dataset.count = state.reward.streak;
     if (boostCoins) boostCoins.dataset.count = state.reward.coins;
     if (boostCount) boostCount.dataset.count = state.reward.coins;
-    if (coinCount) coinCount.dataset.count = state.reward.coins + 1060;
+    if (coinCount) coinCount.dataset.count = state.reward.coins + BASE_COIN_AMOUNT;
     animateCounters();
 
     const percent = Math.min(100, Math.round((state.reward.xp / state.reward.xpMax) * 100));
@@ -577,7 +580,7 @@ const setupInteractions = () => {
 
     switch (action) {
       case "discord":
-        window.open(DISCORD_INVITE, "_blank", "noopener,noreferrer");
+        window.open(DISCORD_INVITE, "_blank", "noopener noreferrer");
         showToast("Opening Discord invite...");
         break;
       case "open-wizard":
