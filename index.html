@@ -724,6 +724,21 @@
         </div>
         <button class="btn primary" data-action="open-wizard">Create Free Server</button>
       </section>
+    
+      <section class="panel">
+        <h2>Live Hosting Control</h2>
+        <input data-server-name placeholder="Server name" />
+        <input data-server-ram type="number" value="2048" min="1024" max="12288" />
+        <button data-action="create-server">Create Server</button>
+        <button data-action="refresh-servers">Refresh</button>
+        <button data-action="start-server">Start</button>
+        <button data-action="stop-server">Stop</button>
+        <div data-server-list></div>
+        <div data-console-output style="height:220px;overflow:auto;background:#111;color:#0f0;padding:10px"></div>
+        <input data-console-input placeholder="say hello" />
+        <button data-action="send-command">Send Command</button>
+      </section>
+
     </main>
 
     <footer class="site-footer">
@@ -974,4 +989,3 @@
     <script src="script.js"></script>
   </body>
 </html>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
