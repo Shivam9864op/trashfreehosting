@@ -1,26 +1,23 @@
 import { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
-import { env } from '../config/env.js';
-import { SOCKET_NAMESPACES } from '../config/constants.js';
+
+let io: Server | null = null;
 
 export function initSocketServer(httpServer: HttpServer) {
-  const io = new Server(httpServer, { cors: { origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN } });
-
-  io.of(SOCKET_NAMESPACES.queue).on('connection', (socket) => {
-    socket.on('queue:subscribe', (queueId) => socket.join(`queue:${queueId}`));
+  io = new Server(httpServer, {
+    path: '/socket.io',
+    cors: { origin: [/^https:\/\/.+github\.io$/, 'https://hosting.trashmcpe.com'], credentials: false },
   });
 
-  io.of(SOCKET_NAMESPACES.serverStatus).on('connection', (socket) => {
-    socket.on('server:watch', (serverId) => socket.join(`server:${serverId}`));
-  });
-
-  io.of(SOCKET_NAMESPACES.rewards).on('connection', (socket) => {
-    socket.on('rewards:subscribe', (userId) => socket.join(`rewards:${userId}`));
-  });
-
-  io.of(SOCKET_NAMESPACES.notifications).on('connection', (socket) => {
-    socket.on('notifications:subscribe', (userId) => socket.join(`notifications:${userId}`));
+  io.on('connection', (socket) => {
+    socket.on('console:subscribe', (serverIdentifier: string) => {
+      if (typeof serverIdentifier === 'string') socket.join(`console:${serverIdentifier}`);
+    });
   });
 
   return io;
+}
+
+export function emitConsole(serverIdentifier: string, line: string) {
+  io?.to(`console:${serverIdentifier}`).emit('console:line', { serverIdentifier, line, ts: Date.now() });
 }
