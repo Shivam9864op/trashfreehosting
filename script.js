@@ -13,7 +13,129 @@ const QUEUE_LOADING_DELAY = 1200;
 const PROVISION_STEP_DELAY = 1200;
 const BASE_COIN_AMOUNT = 1060;
 
+const REWARD_COOLDOWN_SECONDS = 45;
+
+const createId = (prefix) => `${prefix}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+
+const financialAuditLog = [];
+
+const createAuditService = () => ({
+  log(entry) {
+    const record = {
+      id: createId("txn"),
+      timestamp: new Date().toISOString(),
+      ...entry,
+    };
+    financialAuditLog.push(record);
+    return record;
+  },
+});
+
+const auditService = createAuditService();
+
+const createAdsService = ({ audit }) => {
+  const completions = new Map();
+  const suspiciousUsers = new Set();
+  return {
+    verifyRewardWatch({ userId, progress, completedAt }) {
+      const now = completedAt || Date.now();
+      const previous = completions.get(userId);
+      const cooldownBreached = previous && now - previous < REWARD_COOLDOWN_SECONDS * 1000;
+      const valid = progress >= 100 && !cooldownBreached;
+      if (!valid) suspiciousUsers.add(userId);
+      if (valid) completions.set(userId, now);
+      return { valid, cooldownBreached, flagged: suspiciousUsers.has(userId) };
+    },
+    payoutReward({ userId, rewardType, amount }) {
+      audit.log({
+        service: "adsService",
+        type: "ad_reward_payout",
+        userId,
+        rewardType,
+        amount,
+        direction: "credit",
+      });
+    },
+  };
+};
+
+const createBillingService = ({ audit }) => {
+  const subscriptions = new Map();
+  const entitlements = new Map();
+  return {
+    subscribe({ userId, tier = "premium", autoRenew = true }) {
+      subscriptions.set(userId, { tier, active: true, autoRenew, renewedAt: Date.now() });
+      entitlements.set(userId, { premiumBoost: true, queueSkip: true });
+      audit.log({ service: "billingService", type: "subscription_start", userId, tier, direction: "credit" });
+    },
+    renew(userId) {
+      const sub = subscriptions.get(userId);
+      if (!sub || !sub.active || !sub.autoRenew) return false;
+      sub.renewedAt = Date.now();
+      audit.log({ service: "billingService", type: "subscription_renewal", userId, tier: sub.tier, direction: "credit" });
+      return true;
+    },
+    cancel(userId) {
+      const sub = subscriptions.get(userId);
+      if (!sub) return;
+      sub.active = false;
+      entitlements.set(userId, { premiumBoost: false, queueSkip: false });
+      audit.log({ service: "billingService", type: "subscription_cancel", userId, tier: sub.tier, direction: "debit" });
+    },
+    hasEntitlement(userId, key) {
+      return Boolean(entitlements.get(userId)?.[key]);
+    },
+  };
+};
+
+const createCommerceService = ({ audit }) => {
+  const inventory = new Map();
+  const refunded = new Set();
+  return {
+    purchaseCosmetic({ userId, sku, price, kind }) {
+      const userInventory = inventory.get(userId) || [];
+      userInventory.push({ sku, kind, purchasedAt: Date.now() });
+      inventory.set(userId, userInventory);
+      audit.log({ service: "commerceService", type: "purchase", userId, sku, price, direction: "debit" });
+      return true;
+    },
+    processRefund({ userId, txnId }) {
+      if (refunded.has(txnId)) {
+        audit.log({ service: "commerceService", type: "refund_fraud_flag", userId, txnId, direction: "none" });
+        return { ok: false, reason: "duplicate_refund_attempt" };
+      }
+      refunded.add(txnId);
+      audit.log({ service: "commerceService", type: "refund", userId, txnId, direction: "credit" });
+      return { ok: true };
+    },
+  };
+};
+
+const createQueueService = ({ billing }) => {
+  const sponsoredInventory = [
+    { id: "sponsor-1", label: "Lunar Shields", impressions: 0 },
+    { id: "sponsor-2", label: "NetherVPN", impressions: 0 },
+    { id: "sponsor-3", label: "Pixel Crates", impressions: 0 },
+  ];
+  let pointer = 0;
+  return {
+    canBypassQueue(userId) {
+      return billing.hasEntitlement(userId, "queueSkip");
+    },
+    canUsePremiumBoost(userId) {
+      return billing.hasEntitlement(userId, "premiumBoost");
+    },
+    getNextSponsoredListing() {
+      const listing = sponsoredInventory[pointer % sponsoredInventory.length];
+      listing.impressions += 1;
+      pointer += 1;
+      return listing;
+    },
+  };
+};
+
 const state = {
+  userId: "demo-user-001",
   wizard: {
     step: 1,
     edition: "Java",
@@ -38,6 +160,12 @@ const state = {
     xpMax: 1000,
   },
 };
+
+const adsService = createAdsService({ audit: auditService });
+const billingService = createBillingService({ audit: auditService });
+const commerceService = createCommerceService({ audit: auditService });
+const queueService = createQueueService({ billing: billingService });
+billingService.subscribe({ userId: state.userId, tier: "premium" });
 
 const particleContainer = qs("#particles");
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -559,6 +687,12 @@ const setupAdModal = () => {
   };
 
   finishButton?.addEventListener("click", () => {
+    const verification = adsService.verifyRewardWatch({ userId: state.userId, progress: 100 });
+    if (!verification.valid) {
+      showToast("Ad reward blocked due to fraud checks");
+      return;
+    }
+    adsService.payoutReward({ userId: state.userId, rewardType: "ram_boost", amount: 512 });
     closeModal(adModal);
     showToast("Reward applied: +512MB RAM for 6h");
   });
@@ -630,6 +764,10 @@ const setupInteractions = () => {
         adModal.startAd?.();
         break;
       case "skip-queue":
+        if (!queueService.canBypassQueue(state.userId)) {
+          showToast("Queue skip locked · Premium required");
+          break;
+        }
         state.queue.position = Math.max(1, state.queue.position - 3);
         showToast("Queue skip applied · Position boosted");
         break;
@@ -647,6 +785,7 @@ const setupInteractions = () => {
         openModal("compare-modal");
         break;
       case "upgrade-plan":
+        billingService.subscribe({ userId: state.userId, tier: actionEl.dataset.plan || "premium" });
         showToast(`Upgrading to ${actionEl.dataset.plan}...`);
         break;
       case "ask-ai":
@@ -713,5 +852,10 @@ document.addEventListener("DOMContentLoaded", () => {
   setupQueue();
   setupPricing();
   setupCommunity();
+  const sponsoredListing = queueService.getNextSponsoredListing();
+  if (sponsoredListing) {
+    showToast(`Sponsored: ${sponsoredListing.label}`);
+  }
+  commerceService.purchaseCosmetic({ userId: state.userId, sku: "frame-neon-01", price: 600, kind: "profile_frame" });
   window.addEventListener("resize", createParticles);
 });
