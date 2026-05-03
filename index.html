@@ -23,17 +23,25 @@
         <span class="logo-mark">BP</span>
         <span>BlockPulse</span>
       </div>
-      <nav class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#dashboard">Dashboard</a>
-        <a href="#boost">Boost Coins</a>
-        <a href="#community">Community</a>
-        <a href="#pricing">Premium</a>
-      </nav>
-      <div class="header-actions">
-        <button class="btn ghost">Join Discord</button>
-        <button class="btn primary">Create Free Server</button>
+      <div class="nav-panel">
+        <nav class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#dashboard">Dashboard</a>
+          <a href="#boost">Boost Coins</a>
+          <a href="#community">Community</a>
+          <a href="#pricing">Premium</a>
+        </nav>
+        <div class="header-actions">
+          <button class="btn ghost" data-action="discord">Join Discord</button>
+          <button class="btn primary" data-action="open-wizard">Create Free Server</button>
+        </div>
       </div>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="nav-line" aria-hidden="true"></span>
+        <span class="sr-only">Toggle navigation</span>
+      </button>
     </header>
 
     <main>
@@ -51,8 +59,11 @@
             community built for creators.
           </p>
           <div class="hero-actions">
-            <button class="btn primary">Create Free Server</button>
-            <button class="btn ghost">Join Discord</button>
+            <button class="btn primary" data-action="open-wizard">Create Free Server</button>
+            <button class="btn ghost" data-action="discord">Join Discord</button>
+            <button class="btn ghost" data-action="scroll" data-target="#features">
+              See Features
+            </button>
           </div>
           <div class="hero-stats">
             <div class="stat-card glass">
@@ -139,7 +150,7 @@
             </div>
             <h4>Need a setup?</h4>
             <p>Ask Pulse AI to configure plugins, mods, and game rules for you.</p>
-            <button class="btn ghost small">Start Setup</button>
+            <button class="btn ghost small" data-action="open-wizard">Start Setup</button>
           </div>
 
           <div class="floating-widgets">
@@ -220,58 +231,184 @@
           </div>
         </div>
         <div class="dashboard glass">
-          <div class="dashboard-header">
-            <div>
-              <h3>NeonSMP Control</h3>
-              <p>Started 12s ago · 3 Boosts active</p>
-            </div>
-            <button class="btn primary small">Launch Console</button>
-          </div>
-          <div class="dashboard-grid">
-            <div class="dash-card glass">
-              <p>CPU Usage</p>
-              <h4>42%</h4>
-              <div class="chart"></div>
-            </div>
-            <div class="dash-card glass">
-              <p>RAM</p>
-              <h4>2.5GB / 4GB</h4>
-              <div class="chart alt"></div>
-            </div>
-            <div class="dash-card glass">
-              <p>Players Online</p>
-              <h4>28 / 40</h4>
-              <div class="chart mini"></div>
-            </div>
-            <div class="dash-card glass">
-              <p>Boost Coins</p>
-              <h4>1,240</h4>
-              <button class="btn ghost small">Spend Coins</button>
-            </div>
-          </div>
-          <div class="dashboard-footer">
-            <div class="console glass">
-              <div class="console-header">
-                <span>Live Console</span>
-                <span class="mono">/status</span>
+          <div class="dashboard-shell">
+            <aside class="dash-sidebar glass">
+              <div class="sidebar-header">
+                <div>
+                  <h4>Control Hub</h4>
+                  <p class="mono">NeonSMP</p>
+                </div>
+                <button
+                  class="icon-button sidebar-toggle"
+                  data-action="toggle-sidebar"
+                  aria-label="Collapse sidebar"
+                >
+                  <span aria-hidden="true">⟨</span>
+                  <span class="sr-only">Collapse sidebar</span>
+                </button>
               </div>
-              <div class="console-body">
-                <p>[INFO] Server ready · 20 TPS</p>
-                <p>[AI] Recommended plugin: CoreProtect</p>
-                <p>[BOOST] RAM +512MB active for 5h 44m</p>
+              <div class="sidebar-tabs">
+                <button class="tab-button active" data-tab="overview">Overview</button>
+                <button class="tab-button" data-tab="console">Console</button>
+                <button class="tab-button" data-tab="rewards">Rewards</button>
               </div>
-            </div>
-            <div class="ai-side glass">
-              <h4>Pulse AI</h4>
-              <p>Ask me to install mods, balance economy, or optimize lag.</p>
-              <button class="btn primary small">Ask AI</button>
-              <div class="ai-task">
-                <span>Auto-queue skip</span>
-                <span class="chip green">Active</span>
+              <div class="sidebar-rewards">
+                <p class="muted">Boost Coins</p>
+                <h3 data-count="1240" data-coin-count>0</h3>
+                <button class="btn ghost small" data-action="claim-reward">
+                  Claim Daily
+                </button>
               </div>
-              <div class="ai-task">
-                <span>Nightly backup</span>
-                <span class="chip">Scheduled</span>
+              <div class="sidebar-quick">
+                <span class="chip green">Server Healthy</span>
+                <span class="chip">Auto-Backup</span>
+              </div>
+            </aside>
+            <div class="dash-main">
+              <div class="dashboard-header">
+                <div>
+                  <h3>NeonSMP Control</h3>
+                  <p>Started 12s ago · 3 Boosts active</p>
+                </div>
+                <div class="dashboard-actions">
+                  <button
+                    class="icon-button"
+                    data-action="toggle-notifications"
+                    aria-label="Notifications"
+                  >
+                    <span aria-hidden="true">🔔</span>
+                    <span class="sr-only">Notifications</span>
+                  </button>
+                  <button
+                    class="icon-button"
+                    data-action="open-settings"
+                    aria-label="Settings"
+                  >
+                    <span aria-hidden="true">⚙️</span>
+                    <span class="sr-only">Settings</span>
+                  </button>
+                  <button class="btn primary small" data-action="open-console">
+                    Launch Console
+                  </button>
+                </div>
+                <div class="notifications-dropdown glass">
+                  <p class="dropdown-title">Notifications</p>
+                  <div class="dropdown-item">Queue skip ready · 1m ago</div>
+                  <div class="dropdown-item">Daily boost available · now</div>
+                  <div class="dropdown-item">Pulse AI report generated</div>
+                </div>
+              </div>
+              <div class="dash-panels">
+                <div class="dash-panel active" data-panel="overview">
+                  <div class="dashboard-grid">
+                    <div class="dash-card glass">
+                      <p>CPU Usage</p>
+                      <h4><span data-metric="cpu">42</span>%</h4>
+                      <div class="chart" data-value="42">
+                        <span class="chart-fill"></span>
+                      </div>
+                    </div>
+                    <div class="dash-card glass">
+                      <p>RAM</p>
+                      <h4><span data-metric="ram">2.5</span>GB / 4GB</h4>
+                      <div class="chart alt" data-value="62">
+                        <span class="chart-fill"></span>
+                      </div>
+                    </div>
+                    <div class="dash-card glass">
+                      <p>Players Online</p>
+                      <h4><span data-metric="players">28</span> / 40</h4>
+                      <div class="chart mini" data-value="70">
+                        <span class="chart-fill"></span>
+                      </div>
+                    </div>
+                    <div class="dash-card glass">
+                      <p>Boost Coins</p>
+                      <h4 data-count="1240" data-boost-count>0</h4>
+                      <button class="btn ghost small" data-action="open-boost">
+                        Spend Coins
+                      </button>
+                    </div>
+                  </div>
+                  <div class="overview-footer glass">
+                    <div>
+                      <p class="muted">Server Status</p>
+                      <h4 class="status-text">Online · 20 TPS</h4>
+                    </div>
+                    <button class="btn ghost small" data-action="open-queue">
+                      View Queue
+                    </button>
+                  </div>
+                </div>
+                <div class="dash-panel" data-panel="console">
+                  <div class="dashboard-footer">
+                    <div class="console glass">
+                      <div class="console-header">
+                        <span>Live Console</span>
+                        <span class="mono">/status</span>
+                      </div>
+                      <div class="console-body">
+                        <p>[INFO] Server ready · 20 TPS</p>
+                        <p>[AI] Recommended plugin: CoreProtect</p>
+                        <p>[BOOST] RAM +512MB active for 5h 44m</p>
+                      </div>
+                    </div>
+                    <div class="ai-side glass">
+                      <h4>Pulse AI</h4>
+                      <p>Ask me to install mods, balance economy, or optimize lag.</p>
+                      <button class="btn primary small" data-action="ask-ai">
+                        Ask AI
+                      </button>
+                      <div class="ai-task">
+                        <span>Auto-queue skip</span>
+                        <span class="chip green">Active</span>
+                      </div>
+                      <div class="ai-task">
+                        <span>Nightly backup</span>
+                        <span class="chip">Scheduled</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="dash-panel" data-panel="rewards">
+                  <div class="rewards-panel glass">
+                    <div class="reward-summary">
+                      <div>
+                        <p class="muted">Daily Streak</p>
+                        <h3><span data-streak-count data-count="4">0</span> days</h3>
+                      </div>
+                      <button class="btn primary small" data-action="claim-reward">
+                        Claim Daily Reward
+                      </button>
+                    </div>
+                    <div class="reward-progress">
+                      <div class="progress">
+                        <div class="progress-bar" data-progress="72"></div>
+                      </div>
+                      <div class="reward-meta">
+                        <span>Next queue skip</span>
+                        <span class="mono" data-progress-label>72%</span>
+                      </div>
+                    </div>
+                    <div class="xp-track">
+                      <div class="xp-header">
+                        <span>Level 12</span>
+                        <span class="mono" data-xp-text>720 / 1000 XP</span>
+                      </div>
+                      <div class="progress xp-progress">
+                        <div class="progress-bar" data-xp-progress="72"></div>
+                      </div>
+                    </div>
+                    <div class="reward-actions">
+                      <button class="btn ghost small" data-action="open-boost">
+                        Boost Store
+                      </button>
+                      <button class="btn ghost small" data-action="open-queue">
+                        Queue Boost
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -323,6 +460,26 @@
               <span>+5GB storage</span>
             </div>
           </div>
+          <div class="boost-card glass reward-panel">
+            <h3>Daily Boost</h3>
+            <p class="muted">Keep your streak alive to unlock queue skips.</p>
+            <div class="reward-metrics">
+              <div>
+                <span class="label">Streak</span>
+                <strong><span data-boost-streak data-count="4">0</span> days</strong>
+              </div>
+              <div>
+                <span class="label">Coins Ready</span>
+                <strong><span data-boost-coins data-count="180">0</span></strong>
+              </div>
+            </div>
+            <div class="progress">
+              <div class="progress-bar" data-progress="60"></div>
+            </div>
+            <button class="btn primary small" data-action="claim-reward">
+              Claim Daily Reward
+            </button>
+          </div>
         </div>
       </section>
 
@@ -344,6 +501,55 @@
         </div>
       </section>
 
+      <section id="queue" class="panel split">
+        <div class="section-title">
+          <p class="eyebrow">Queue System</p>
+          <h2>Skip the wait, stay in control.</h2>
+          <p>
+            Live queue tracking, estimated wait times, and rewarded ads keep your
+            server momentum high even during peak hours.
+          </p>
+          <div class="queue-cta">
+            <button class="btn primary" data-action="open-queue">Open Queue</button>
+            <button class="btn ghost" data-action="watch-ad">Watch Rewarded Ad</button>
+          </div>
+        </div>
+        <div class="queue-panel glass">
+          <div class="queue-header">
+            <div>
+              <p class="muted">Estimated wait</p>
+              <h3 data-queue-estimate>04:32</h3>
+            </div>
+            <div class="queue-timer">
+              <span class="label">Waiting</span>
+              <strong data-queue-timer>00:45</strong>
+            </div>
+          </div>
+          <div class="queue-progress">
+            <div class="progress">
+              <div class="progress-bar" data-queue-progress="35"></div>
+            </div>
+            <div class="reward-meta">
+              <span>Position 18 of 62</span>
+              <span class="mono" data-queue-position>18</span>
+            </div>
+          </div>
+          <div class="queue-updates loading">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+          </div>
+          <div class="queue-actions">
+            <button class="btn ghost small" data-action="watch-ad">
+              Watch Rewarded Ad
+            </button>
+            <button class="btn primary small" data-action="skip-queue">
+              Use Boost Coins
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section id="community" class="panel split">
         <div class="section-title">
           <p class="eyebrow">Community</p>
@@ -353,8 +559,10 @@
             alive and social.
           </p>
           <div class="community-actions">
-            <button class="btn primary">Join the Community</button>
-            <button class="btn ghost">Explore Servers</button>
+            <button class="btn primary" data-action="discord">Join the Community</button>
+            <button class="btn ghost" data-action="scroll" data-target=".community-carousel">
+              Explore Servers
+            </button>
           </div>
         </div>
         <div class="community-grid">
@@ -382,6 +590,60 @@
               <li>Creator Spotlight</li>
             </ul>
           </div>
+          <div class="community-card glass leaderboard-card">
+            <h3>Leaderboard</h3>
+            <ul class="leaderboard">
+              <li>
+                <span>NovaKai</span>
+                <span class="mono" data-score="1240">0</span>
+              </li>
+              <li>
+                <span>AstraGuild</span>
+                <span class="mono" data-score="1120">0</span>
+              </li>
+              <li>
+                <span>OrbitCrew</span>
+                <span class="mono" data-score="980">0</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="community-carousel glass">
+          <div class="carousel-header">
+            <h3>Featured Servers</h3>
+            <div class="carousel-controls">
+              <button class="icon-button" data-action="carousel-prev" aria-label="Previous">
+                <span aria-hidden="true">‹</span>
+                <span class="sr-only">Previous</span>
+              </button>
+              <button class="icon-button" data-action="carousel-next" aria-label="Next">
+                <span aria-hidden="true">›</span>
+                <span class="sr-only">Next</span>
+              </button>
+            </div>
+          </div>
+          <div class="carousel-track">
+            <div class="carousel-card glass">
+              <h4>PixelVibe</h4>
+              <p>AI-tuned SMP · 3.2GB RAM</p>
+              <span class="chip green">Online</span>
+            </div>
+            <div class="carousel-card glass">
+              <h4>VoidRunners</h4>
+              <p>Parkour · Daily quests</p>
+              <span class="chip">Queue skip ready</span>
+            </div>
+            <div class="carousel-card glass">
+              <h4>CrystalFactions</h4>
+              <p>Factions · 48 players</p>
+              <span class="chip purple">Boosted</span>
+            </div>
+            <div class="carousel-card glass">
+              <h4>DriftSkyblock</h4>
+              <p>Skyblock · 2.1GB RAM</p>
+              <span class="chip cyan">Trending</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -394,39 +656,52 @@
             performance with priority support.
           </p>
         </div>
+        <div class="pricing-toggle">
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-pricing="monthly">Monthly</button>
+            <button class="toggle-btn" data-pricing="annual">Annual</button>
+          </div>
+          <button class="btn ghost small" data-action="compare-plans">
+            Compare Plans
+          </button>
+        </div>
         <div class="pricing-grid">
           <div class="pricing-card glass">
             <h3>Free</h3>
-            <p class="price">$0</p>
+            <p class="price" data-monthly="0" data-annual="0">$0</p>
             <ul>
               <li>Java + Bedrock</li>
               <li>AI setup assistant</li>
               <li>Boost Coins</li>
               <li>Community discovery</li>
             </ul>
-            <button class="btn ghost">Start Free</button>
+            <button class="btn ghost" data-action="open-wizard">Start Free</button>
           </div>
           <div class="pricing-card glass highlight">
             <h3>Pulse Pro</h3>
-            <p class="price">$6/mo</p>
+            <p class="price" data-monthly="6" data-annual="60">$6/mo</p>
             <ul>
               <li>No queue</li>
               <li>More RAM & storage</li>
               <li>Unlimited backups</li>
               <li>Custom domains</li>
             </ul>
-            <button class="btn primary">Go Pro</button>
+            <button class="btn primary" data-action="upgrade-plan" data-plan="pro">
+              Go Pro
+            </button>
           </div>
           <div class="pricing-card glass">
             <h3>Pulse Elite</h3>
-            <p class="price">$12/mo</p>
+            <p class="price" data-monthly="12" data-annual="120">$12/mo</p>
             <ul>
               <li>Always-online mode</li>
               <li>Advanced mod uploads</li>
               <li>Priority CPU</li>
               <li>Premium support</li>
             </ul>
-            <button class="btn ghost">Go Elite</button>
+            <button class="btn ghost" data-action="upgrade-plan" data-plan="elite">
+              Go Elite
+            </button>
           </div>
         </div>
       </section>
@@ -439,7 +714,7 @@
             world.
           </p>
         </div>
-        <button class="btn primary">Create Free Server</button>
+        <button class="btn primary" data-action="open-wizard">Create Free Server</button>
       </section>
     </main>
 
@@ -458,6 +733,230 @@
         <a href="#">Privacy</a>
       </div>
     </footer>
+
+    <div class="modal" id="server-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content glass">
+        <button class="modal-close" data-close-modal aria-label="Close modal">
+          ×
+        </button>
+        <div class="wizard">
+          <div class="wizard-progress">
+            <div class="wizard-step-indicator active" data-step-indicator="1">1</div>
+            <div class="wizard-step-indicator" data-step-indicator="2">2</div>
+            <div class="wizard-step-indicator" data-step-indicator="3">3</div>
+            <div class="wizard-step-indicator" data-step-indicator="4">4</div>
+            <div class="wizard-step-indicator" data-step-indicator="5">5</div>
+            <div class="wizard-progress-bar">
+              <span></span>
+            </div>
+          </div>
+          <div class="wizard-steps">
+            <div class="wizard-step active" data-step="1">
+              <h3>Choose your edition</h3>
+              <p class="muted">Pick Java or Bedrock to start the wizard.</p>
+              <div class="option-grid">
+                <button class="option-card" data-option="Java">
+                  <h4>Java Edition</h4>
+                  <p>Plugins + mods ready</p>
+                </button>
+                <button class="option-card" data-option="Bedrock">
+                  <h4>Bedrock Edition</h4>
+                  <p>Mobile + console friendly</p>
+                </button>
+              </div>
+            </div>
+            <div class="wizard-step" data-step="2">
+              <h3>Select a server type</h3>
+              <p class="muted">Choose a template, Pulse AI will tune it.</p>
+              <div class="option-grid">
+                <button class="option-card" data-option="SMP">SMP</button>
+                <button class="option-card" data-option="PvP">PvP</button>
+                <button class="option-card" data-option="Skyblock">Skyblock</button>
+                <button class="option-card" data-option="Modded">Modded</button>
+              </div>
+              <div class="ai-recommendation">
+                <div>
+                  <p class="chip cyan">Pulse AI</p>
+                  <h4 data-ai-recommendation>Recommended: SMP + Economy</h4>
+                  <p class="muted">Optimized for quick launches and low lag.</p>
+                </div>
+                <button class="btn ghost small" data-action="apply-ai">
+                  Apply Recommendation
+                </button>
+              </div>
+            </div>
+            <div class="wizard-step" data-step="3">
+              <h3>Allocate RAM</h3>
+              <p class="muted">Adjust memory for your player count.</p>
+              <div class="slider-wrap">
+                <input
+                  type="range"
+                  min="1"
+                  max="8"
+                  step="0.5"
+                  value="4"
+                  data-ram-slider
+                />
+                <div class="slider-value">
+                  <span data-ram-value>4GB</span>
+                  <span class="mono">Recommended: 3.5GB</span>
+                </div>
+              </div>
+            </div>
+            <div class="wizard-step" data-step="4">
+              <h3>Review & launch</h3>
+              <p class="muted">Double-check your selections.</p>
+              <div class="review-grid">
+                <div>
+                  <span class="label">Edition</span>
+                  <strong data-review-edition>Java</strong>
+                </div>
+                <div>
+                  <span class="label">Type</span>
+                  <strong data-review-type>SMP</strong>
+                </div>
+                <div>
+                  <span class="label">RAM</span>
+                  <strong data-review-ram>4GB</strong>
+                </div>
+              </div>
+              <button class="btn primary" data-action="start-provision">
+                Provision Server
+              </button>
+            </div>
+            <div class="wizard-step" data-step="5">
+              <h3>Provisioning your server</h3>
+              <p class="muted">Pulse AI is optimizing your world.</p>
+              <div class="provision-loader">
+                <div class="spinner"></div>
+                <p data-provision-status>Allocating nodes...</p>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" data-provision-progress></div>
+              </div>
+              <ul class="provision-list">
+                <li class="pending">Allocating nodes</li>
+                <li class="pending">Installing template</li>
+                <li class="pending">Configuring plugins</li>
+                <li class="pending">Starting server</li>
+              </ul>
+              <button class="btn primary" data-action="finish-provision" disabled>
+                Open Dashboard
+              </button>
+            </div>
+          </div>
+          <div class="wizard-actions">
+            <button class="btn ghost small" data-action="wizard-back">Back</button>
+            <button class="btn primary small" data-action="wizard-next">Next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="settings-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content glass small">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button class="modal-close" data-close-modal aria-label="Close settings">
+            ×
+          </button>
+        </div>
+        <div class="settings-grid">
+          <label class="toggle">
+            <input type="checkbox" id="sound-toggle" checked />
+            <span>Sound effects</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="motion-toggle" checked />
+            <span>Animations</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="notify-toggle" checked />
+            <span>Notifications</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="compare-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content glass wide">
+        <div class="modal-header">
+          <h3>Compare Plans</h3>
+          <button class="modal-close" data-close-modal aria-label="Close comparison">
+            ×
+          </button>
+        </div>
+        <div class="compare-table">
+          <div class="compare-row header">
+            <span>Feature</span>
+            <span>Free</span>
+            <span>Pulse Pro</span>
+            <span>Pulse Elite</span>
+          </div>
+          <div class="compare-row">
+            <span>Queue Skip</span>
+            <span>Limited</span>
+            <span>Unlimited</span>
+            <span>Unlimited</span>
+          </div>
+          <div class="compare-row">
+            <span>RAM</span>
+            <span>4GB</span>
+            <span>8GB</span>
+            <span>12GB</span>
+          </div>
+          <div class="compare-row">
+            <span>Backups</span>
+            <span>2/day</span>
+            <span>Unlimited</span>
+            <span>Unlimited + AI restore</span>
+          </div>
+          <div class="compare-row">
+            <span>Support</span>
+            <span>Community</span>
+            <span>Priority</span>
+            <span>VIP</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="reward-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content glass small reward-popup">
+        <button class="modal-close" data-close-modal aria-label="Close reward">
+          ×
+        </button>
+        <div class="coin-burst">🪙</div>
+        <h3>Daily Boost Claimed!</h3>
+        <p class="muted">+180 Boost Coins · Streak extended.</p>
+        <button class="btn primary small" data-close-modal>Awesome</button>
+      </div>
+    </div>
+
+    <div class="modal" id="ad-modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close-modal></div>
+      <div class="modal-content glass small">
+        <div class="modal-header">
+          <h3>Rewarded Ad</h3>
+          <button class="modal-close" data-close-modal aria-label="Close ad">
+            ×
+          </button>
+        </div>
+        <p class="muted">Watching... unlocks +512MB RAM for 6 hours.</p>
+        <div class="progress">
+          <div class="progress-bar" data-ad-progress></div>
+        </div>
+        <button class="btn primary small" data-action="finish-ad" disabled>
+          Claim Reward
+        </button>
+      </div>
+    </div>
+
+    <div class="toast-container" aria-live="polite"></div>
 
     <script src="script.js"></script>
   </body>
