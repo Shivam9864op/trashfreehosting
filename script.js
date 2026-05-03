@@ -12,13 +12,23 @@ const QUEUE_POSITION_DECREMENT = 1;
 const QUEUE_LOADING_DELAY = 1200;
 const PROVISION_STEP_DELAY = 1200;
 const BASE_COIN_AMOUNT = 1060;
+const MB_PER_GB = 1024;
+
+const FREE_PLAN_CONFIG = Object.freeze({
+  starter: Object.freeze({ id: "starter", label: "Starter", base_ram_mb: 1024 }),
+  standard: Object.freeze({ id: "standard", label: "Standard", base_ram_mb: 2048 }),
+  max_free: Object.freeze({ id: "max_free", label: "Max Free", base_ram_mb: 3072 }),
+});
+
+const FREE_PLAN_MAX_BASE_RAM_MB = FREE_PLAN_CONFIG.max_free.base_ram_mb;
 
 const state = {
   wizard: {
     step: 1,
     edition: "Java",
     type: "SMP",
-    ram: 4,
+    ram: 1,
+    planId: FREE_PLAN_CONFIG.starter.id,
     provisioning: false,
   },
   soundEnabled: true,
@@ -37,6 +47,34 @@ const state = {
     xp: 720,
     xpMax: 1000,
   },
+};
+
+const provisionServer = ({ requestedBaseRamMb, temporaryRamBonusMb = 0 }) => {
+  const now = new Date();
+  if (requestedBaseRamMb > FREE_PLAN_MAX_BASE_RAM_MB) {
+    return {
+      ok: false,
+      error: {
+        code: "FREE_PLAN_RAM_CAP_EXCEEDED",
+        message: `Free tier base RAM is capped at ${FREE_PLAN_MAX_BASE_RAM_MB / MB_PER_GB}GB.`,
+        details: {
+          requested_base_ram_mb: requestedBaseRamMb,
+          max_base_ram_mb: FREE_PLAN_MAX_BASE_RAM_MB,
+        },
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      plan_id: state.wizard.planId,
+      base_ram_mb: requestedBaseRamMb,
+      temporary_ram_bonus_mb: temporaryRamBonusMb,
+      temporary_ram_bonus_expires_at:
+        temporaryRamBonusMb > 0 ? new Date(now.getTime() + 60 * 60 * 1000).toISOString() : null,
+    },
+  };
 };
 
 const particleContainer = qs("#particles");
@@ -294,6 +332,7 @@ const setupWizard = () => {
   const provisionProgress = qs("[data-provision-progress]", modal);
   const provisionList = qsa(".provision-list li", modal);
   const finishButton = qs('[data-action="finish-provision"]', modal);
+  const provisionError = qs("[data-provision-error]", modal);
 
   const updateWizard = () => {
     steps.forEach((step) => step.classList.toggle("active", Number(step.dataset.step) === state.wizard.step));
@@ -350,6 +389,16 @@ const setupWizard = () => {
   updateWizard();
 
   const startProvisioning = () => {
+    const requestedBaseRamMb = Math.round(state.wizard.ram * MB_PER_GB);
+    const apiResponse = provisionServer({ requestedBaseRamMb, temporaryRamBonusMb: 512 });
+    if (!apiResponse.ok) {
+      const errorMessage = `${apiResponse.error.message} Reduce base RAM to 3GB or less.`;
+      if (provisionError) provisionError.textContent = errorMessage;
+      showToast(errorMessage);
+      return;
+    }
+
+    if (provisionError) provisionError.textContent = "";
     state.wizard.step = 5;
     state.wizard.provisioning = true;
     provisionList.forEach((item) => item.classList.remove("complete", "active"));
