@@ -1,358 +1,307 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trash Free Hosting</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
+<title>TrashFreeHosting</title>
 
-body{
-    background:#0b1020;
-    color:white;
-    font-family:Arial;
-    padding:30px;
-}
-
-.box{
-    background:#121933;
-    padding:20px;
-    border-radius:12px;
-    margin-bottom:20px;
-}
-
-input,button{
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    margin:5px;
-}
-
-button{
-    cursor:pointer;
-    background:#5865f2;
-    color:white;
-}
-
-#console{
-    background:black;
-    color:#00ff00;
-    padding:10px;
-    height:300px;
-    overflow:auto;
-    border-radius:10px;
-    margin-top:20px;
-    font-family:monospace;
-}
-
-.server-btn{
-    display:block;
-    width:100%;
-    text-align:left;
-    margin-top:10px;
-    background:#1f2a4d;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<h1>Trash Free Hosting</h1>
-
-<div class="box">
-
-<h2>Create Server</h2>
-
-<input id="server-name" placeholder="Server Name">
-
-<input id="server-ram" type="number" value="1024">
-
-<button onclick="createServer()">
-Create Server
-</button>
-
-</div>
-
-<div class="box">
-
-<h2>Servers</h2>
-
-<button onclick="loadServers()">
-Refresh Servers
-</button>
-
-<div id="servers"></div>
-
-</div>
-
-<div class="box">
-
-<h2>Controls</h2>
-
-<button onclick="startServer()">
-Start
-</button>
-
-<button onclick="stopServer()">
-Stop
-</button>
-
-</div>
-
-<div class="box">
-
-<h2>Console</h2>
-
-<div id="console"></div>
-
-<input id="command" placeholder="say hello">
-
-<button onclick="sendCommand()">
-Send
-</button>
-
-</div>
+<link rel="stylesheet" href="styles.css" />
 
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
-<script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+</head>
 
-const API =
-"https://hosting.trashmcpe.com/backend";
+<body class="page-loaded">
 
-let selectedServer = null;
+<div class="bg-orb orb-a"></div>
+<div class="bg-orb orb-b"></div>
+<div class="bg-orb orb-c"></div>
 
-const consoleBox =
-document.getElementById("console");
+<header class="site-header">
+    <div class="logo">
+        <div class="logo-mark">T</div>
+        <span>TrashFreeHosting</span>
+    </div>
 
-function log(text){
+    <div class="header-actions">
+        <button class="btn primary">
+            Minecraft Hosting
+        </button>
+    </div>
+</header>
 
-    consoleBox.innerHTML +=
-    text + "<br>";
+<section class="hero">
 
-    consoleBox.scrollTop =
-    consoleBox.scrollHeight;
+    <div class="hero-content">
 
-}
+        <span class="pill">
+            AI Powered Hosting
+        </span>
 
-async function api(
-    path,
-    method="GET",
-    body=null
-){
+        <h1>
+            Free Minecraft Hosting
+            <br>
+            That Doesn't Feel Free
+        </h1>
 
-    const res = await fetch(
-        API + path,
-        {
-            method,
-            headers:{
-                "Content-Type":
-                "application/json"
-            },
-            body:
-            body ?
-            JSON.stringify(body)
-            :
-            null
-        }
-    );
+        <p class="subtitle">
+            Deploy servers instantly with live console,
+            premium infrastructure and modern dashboard UX.
+        </p>
 
-    return await res.json();
+        <div class="hero-actions">
 
-}
+            <button
+                class="btn primary"
+                onclick="document.getElementById('dashboard').scrollIntoView({behavior:'smooth'})">
+                Open Dashboard
+            </button>
 
-async function createServer(){
+        </div>
 
-    const name =
-    document.getElementById(
-        "server-name"
-    ).value;
+        <div class="hero-stats">
 
-    const ramMb =
-    Number(
-        document.getElementById(
-            "server-ram"
-        ).value
-    );
+            <div class="glass stat-card">
+                <div class="stat-label">Latency</div>
+                <h3>12ms</h3>
+                <span class="stat-tag">India</span>
+            </div>
 
-    if(!name){
+            <div class="glass stat-card">
+                <div class="stat-label">Deploy Time</div>
+                <h3>8s</h3>
+                <span class="stat-tag">Instant</span>
+            </div>
 
-        alert("Enter name");
+            <div class="glass stat-card">
+                <div class="stat-label">Status</div>
+                <h3>Online</h3>
+                <span class="stat-tag">Pterodactyl</span>
+            </div>
 
-        return;
+        </div>
 
-    }
+    </div>
 
-    log("Creating server...");
+    <div class="hero-visual">
 
-    const data = await api(
-        "/create-server",
-        "POST",
-        {
-            name,
-            ramMb
-        }
-    );
+        <div class="glass server-card floating">
 
-    console.log(data);
+            <div class="card-header">
+                <span>Node #1</span>
+                <span class="chip green">ONLINE</span>
+            </div>
 
-    log("Server created");
+            <h3>Minecraft Infrastructure</h3>
 
-    loadServers();
+            <div class="progress">
+                <div class="progress-bar" style="width:72%"></div>
+            </div>
 
-}
+        </div>
 
-async function loadServers(){
+        <div class="glass server-card floating delay">
 
-    const data =
-    await api("/api/servers");
+            <div class="card-header">
+                <span>AI Queue</span>
+                <span class="chip cyan">ACTIVE</span>
+            </div>
 
-    console.log(data);
-
-    const servers =
-    document.getElementById(
-        "servers"
-    );
-
-    servers.innerHTML = "";
-
-    data.forEach((srv)=>{
-
-        const s =
-        srv.attributes || srv;
-
-        const btn =
-        document.createElement(
-            "button"
-        );
-
-        btn.className =
-        "server-btn";
-
-        btn.innerHTML =
-        s.name +
-        " (" +
-        s.identifier +
-        ")";
-
-        btn.onclick = ()=>{
-
-            selectedServer =
-            s.identifier;
-
-            log(
-                "Selected: " +
-                s.name
-            );
-
-        };
-
-        servers.appendChild(btn);
-
-    });
-
-}
-
-async function startServer(){
-
-    if(!selectedServer){
-
-        alert("Select server");
-
-        return;
-
-    }
-
-    await api(
-        "/api/start-server/" +
-        selectedServer,
-        "POST"
-    );
-
-    log("Start signal sent");
-
-}
-
-async function stopServer(){
-
-    if(!selectedServer){
-
-        alert("Select server");
-
-        return;
-
-    }
-
-    await api(
-        "/api/stop-server/" +
-        selectedServer,
-        "POST"
-    );
-
-    log("Stop signal sent");
-
-}
-
-async function sendCommand(){
-
-    const command =
-    document.getElementById(
-        "command"
-    ).value;
-
-    if(!selectedServer){
-
-        alert("Select server");
-
-        return;
-
-    }
-
-    await api(
-        "/api/console/" +
-        selectedServer,
-        "POST",
-        {
-            command
-        }
-    );
-
-    log("> " + command);
-
-}
-
-const socket = io(
-    "https://hosting.trashmcpe.com",
-    {
-        transports:["websocket"]
-    }
-);
-
-socket.on(
-    "connect",
-    ()=>{
-
-        log(
-            "Console connected"
-        );
-
-    }
-);
-
-socket.on(
-    "console:line",
-    (msg)=>{
-
-        log(msg.line);
-
-    }
-);
-
-loadServers();
-
-</script>
+            <h3>Provisioning Engine</h3>
+
+            <div class="progress">
+                <div class="progress-bar" style="width:92%"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<section class="panel" id="dashboard">
+
+<div class="section-title">
+    <span class="eyebrow">Dashboard</span>
+    <h2>Server Control Panel</h2>
+    <p>
+        Create, manage and control Minecraft servers live.
+    </p>
+</div>
+
+<div class="dashboard glass">
+
+    <div class="dashboard-grid">
+
+        <div class="dash-card glass">
+
+            <label class="label">Server Name</label>
+
+            <input
+                data-server-name
+                placeholder="Enter server name"
+                style="
+                    width:100%;
+                    padding:14px;
+                    border:none;
+                    border-radius:12px;
+                    background:#0f172a;
+                    color:white;
+                    margin-top:8px;
+                ">
+
+        </div>
+
+        <div class="dash-card glass">
+
+            <label class="label">RAM MB</label>
+
+            <input
+                data-server-ram
+                value="1024"
+                type="number"
+                style="
+                    width:100%;
+                    padding:14px;
+                    border:none;
+                    border-radius:12px;
+                    background:#0f172a;
+                    color:white;
+                    margin-top:8px;
+                ">
+
+        </div>
+
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+
+        <button
+            class="btn primary"
+            data-action="create-server">
+            Create Server
+        </button>
+
+        <button
+            class="btn ghost"
+            data-action="refresh-servers">
+            Refresh
+        </button>
+
+        <button
+            class="btn ghost"
+            data-action="start-server">
+            Start
+        </button>
+
+        <button
+            class="btn ghost"
+            data-action="stop-server">
+            Stop
+        </button>
+
+    </div>
+
+    <div
+        class="glass"
+        style="
+            margin-top:28px;
+            padding:20px;
+        ">
+
+        <h3 style="margin-bottom:18px;">
+            Servers
+        </h3>
+
+        <div
+            data-server-list
+            style="
+                display:grid;
+                gap:10px;
+            ">
+        </div>
+
+    </div>
+
+    <div
+        class="glass"
+        style="
+            margin-top:28px;
+            padding:20px;
+        ">
+
+        <div class="console-header">
+            <span>Live Console</span>
+            <span class="chip green">
+                CONNECTED
+            </span>
+        </div>
+
+        <div
+            data-console-output
+            style="
+                background:black;
+                border-radius:14px;
+                padding:18px;
+                height:350px;
+                overflow:auto;
+                font-family:'JetBrains Mono';
+                font-size:13px;
+                margin-top:16px;
+                color:#00ff66;
+            ">
+        </div>
+
+        <div
+            style="
+                display:flex;
+                gap:12px;
+                margin-top:16px;
+            ">
+
+            <input
+                data-console-input
+                placeholder="say hello"
+                style="
+                    flex:1;
+                    padding:14px;
+                    border:none;
+                    border-radius:12px;
+                    background:#0f172a;
+                    color:white;
+                ">
+
+            <button
+                class="btn primary"
+                data-action="send-command">
+                Send
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
+<footer class="site-footer">
+
+<div>
+    © 2026 TrashFreeHosting
+</div>
+
+<div class="footer-links">
+    <a href="#">Discord</a>
+    <a href="#">Status</a>
+</div>
+
+</footer>
+
+<script src="script.js"></script>
 
 </body>
 </html>
