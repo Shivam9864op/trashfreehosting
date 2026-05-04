@@ -195,6 +195,13 @@ async function sendAuthEvent(type, username) {
   catch(e) { console.warn('Auth event log failed:', e.message); }
 }
 
+function logAuthEvent(type, username) {
+  const key = `bp_auth_${type}_${username}`;
+  if(sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+  sendAuthEvent(type, username);
+}
+
 /* ════════════════════════════
    SOCKET
 ════════════════════════════ */
@@ -890,10 +897,11 @@ function showAdmin()   { $('landingPage').classList.remove('active'); $('loginPa
 function tryLogin() {
   const username=$('loginUsername').value.trim();
   if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)){ toast('Username must be 3–20 chars: letters, numbers, underscores','error'); return; }
-  const existing=Store.get('user');
-  const isNew = !existing || existing.name !== username;
+  let isNew = false;
   // Load or create user
   if(!S.user || S.user.name!==username) {
+    const existing=Store.get('user');
+    isNew = !existing || existing.name !== username;
     if(existing&&existing.name===username) { S.user=existing; }
     else {
       S.user={name:username, coins:100, streak:0, lastLogin:null, lastClaim:null, spinLastUsed:null, adLastUsed:null, tasks:null};
@@ -901,7 +909,7 @@ function tryLogin() {
     }
     saveUser();
   }
-  sendAuthEvent(isNew?'register':'login', username);
+  logAuthEvent(isNew?'register':'login', username);
   bootDashboard();
 }
 
@@ -1135,7 +1143,7 @@ function startLatencyMonitor() {
 function boot() {
   // Check for saved user session
   if(loadUser()) {
-    sendAuthEvent('login', S.user.name);
+    logAuthEvent('login', S.user.name);
     bootDashboard();
   }
   bindEvents();
