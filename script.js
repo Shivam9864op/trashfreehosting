@@ -1,4 +1,4 @@
-const API_BASE = 'https://hosting.trashmcpe.com/api';
+const API_BASE = 'https://hosting.trashmcpe.com/backend/api';
 const SOCKET_BASE = 'https://hosting.trashmcpe.com';
 
 const el = (s) => document.querySelector(s);
