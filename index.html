@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Premium Minecraft Hosting Dashboard" />
+  <meta name="description" content="TrashFreeHosting - Free Minecraft Server Hosting" />
   
-  <title>TrashFreeHosting - Premium Dashboard</title>
+  <title>TrashFreeHosting — Free Minecraft Hosting</title>
   
   <link rel="stylesheet" href="styles.css" />
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -37,31 +37,40 @@
       </button>
 
       <div class="sidebar-brand">
-        <div class="brand-icon">T</div>
+        <div class="brand-icon">⛏</div>
         <span class="brand-text">TrashFree</span>
       </div>
 
       <nav class="sidebar-nav">
         <button class="nav-item active" data-nav="dashboard" aria-label="Dashboard">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon">🏠</span>
           <span class="nav-label">Dashboard</span>
         </button>
-        <button class="nav-item" data-nav="servers" aria-label="Servers">
+        <button class="nav-item" data-nav="servers" aria-label="My Servers">
           <span class="nav-icon">🖥️</span>
-          <span class="nav-label">Servers</span>
+          <span class="nav-label">My Servers</span>
+        </button>
+        <button class="nav-item" data-nav="create" aria-label="Create Server">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Quick Setup</span>
         </button>
         <button class="nav-item" data-nav="console" aria-label="Console">
           <span class="nav-icon">⌨️</span>
           <span class="nav-label">Console</span>
         </button>
-        <button class="nav-item" data-nav="stats" aria-label="Statistics">
-          <span class="nav-icon">📈</span>
-          <span class="nav-label">Statistics</span>
+        <button class="nav-item" data-nav="admin" aria-label="Admin Panel">
+          <span class="nav-icon">🔧</span>
+          <span class="nav-label">Admin</span>
+          <span class="nav-badge">PRO</span>
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="connection-status">
+        <div class="sync-indicator" id="syncIndicator">
+          <span class="sync-dot" id="syncDot"></span>
+          <span id="syncText">Auto-sync: ON</span>
+        </div>
+        <div class="connection-status" style="margin-top: 0.5rem;">
           <span class="status-dot" id="connectionDot"></span>
           <span id="connectionText">Connecting...</span>
         </div>
@@ -74,182 +83,379 @@
       <!-- Header -->
       <header class="top-header">
         <div class="header-left">
-          <h1 class="page-title">Dashboard</h1>
-          <p class="page-subtitle">Manage your Minecraft servers</p>
+          <h1 class="page-title" id="pageTitle">Dashboard</h1>
+          <p class="page-subtitle" id="pageSubtitle">Manage your Minecraft servers</p>
         </div>
         <div class="header-right">
           <div class="search-box">
-            <input type="text" placeholder="Search servers..." class="search-input" />
+            <input type="text" placeholder="Search servers..." class="search-input" id="globalSearch" />
             <span class="search-icon">🔍</span>
           </div>
-          <button class="header-action-btn" id="settingsBtn">
-            ⚙️
-          </button>
+          <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light/dark mode">🌙</button>
+          <button class="header-action-btn" id="settingsBtn" title="Settings">⚙️</button>
         </div>
       </header>
 
-      <!-- Stats Row -->
-      <section class="stats-row">
-        <div class="stat-card glass-effect">
-          <div class="stat-header">
-            <span class="stat-icon">🖥️</span>
-            <h3>Active Servers</h3>
-          </div>
-          <div class="stat-value" id="activeServersCount">0</div>
-          <div class="stat-meta">Live instances</div>
-          <div class="stat-sparkline"></div>
-        </div>
+      <!-- === DASHBOARD PAGE === -->
+      <div class="page-section active" id="page-dashboard" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
 
-        <div class="stat-card glass-effect">
-          <div class="stat-header">
-            <span class="stat-icon">⚡</span>
-            <h3>Total Players</h3>
+        <!-- Stats Row -->
+        <section class="stats-row">
+          <div class="stat-card glass-effect">
+            <div class="stat-header">
+              <span class="stat-icon">🖥️</span>
+              <h3>Active Servers</h3>
+            </div>
+            <div class="stat-value" id="activeServersCount">0</div>
+            <div class="stat-meta">Live instances</div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="activeServersBar" style="width: 0%;"></div></div>
           </div>
-          <div class="stat-value" id="totalPlayersCount">0</div>
-          <div class="stat-meta">Connected players</div>
-          <div class="stat-sparkline"></div>
-        </div>
 
-        <div class="stat-card glass-effect">
-          <div class="stat-header">
-            <span class="stat-icon">🌐</span>
-            <h3>Latency</h3>
+          <div class="stat-card glass-effect">
+            <div class="stat-header">
+              <span class="stat-icon">👥</span>
+              <h3>Total Players</h3>
+            </div>
+            <div class="stat-value" id="totalPlayersCount">0</div>
+            <div class="stat-meta">Online now</div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="playersBar" style="width: 0%;"></div></div>
           </div>
-          <div class="stat-value" id="latencyValue">--ms</div>
-          <div class="stat-meta">India Region</div>
-          <div class="stat-bar">
-            <div class="stat-bar-fill" style="width: 85%;"></div>
-          </div>
-        </div>
 
-        <div class="stat-card glass-effect">
-          <div class="stat-header">
-            <span class="stat-icon">💾</span>
-            <h3>Storage</h3>
-          </div>
-          <div class="stat-value">45%</div>
-          <div class="stat-meta">5.2 / 11.5 GB</div>
-          <div class="stat-bar">
-            <div class="stat-bar-fill" style="width: 45%;"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Create Server Section -->
-      <section class="section-card glass-effect">
-        <div class="section-header">
-          <h2>Create New Server</h2>
-          <p>Deploy a new Minecraft server instantly</p>
-        </div>
-
-        <div class="create-form">
-          <div class="form-group">
-            <label for="serverName" class="form-label">Server Name</label>
-            <div class="input-wrapper">
-              <input 
-                id="serverName"
-                type="text" 
-                placeholder="My Awesome Server"
-                class="form-input"
-                maxlength="32"
-              />
-              <span class="input-char-count"><span id="serverNameCount">0</span>/32</span>
+          <div class="stat-card glass-effect">
+            <div class="stat-header">
+              <span class="stat-icon">🌐</span>
+              <h3>Latency</h3>
+            </div>
+            <div class="stat-value" id="latencyValue">--ms</div>
+            <div class="stat-meta">Panel response</div>
+            <div class="stat-bar">
+              <div class="stat-bar-fill" id="latencyBar" style="width: 85%;"></div>
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label for="serverRam" class="form-label">RAM (MB)</label>
-              <div class="input-wrapper">
-                <input 
-                  id="serverRam"
-                  type="number" 
-                  placeholder="1024"
-                  class="form-input"
-                  value="1024"
-                  min="256"
-                  max="8192"
-                />
+          <div class="stat-card glass-effect">
+            <div class="stat-header">
+              <span class="stat-icon">🔗</span>
+              <h3>Panel Status</h3>
+            </div>
+            <div class="stat-value" id="panelStatusValue" style="font-size:1.2rem;">Checking…</div>
+            <div class="stat-meta">Pterodactyl</div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="panelBar" style="width: 0%;"></div></div>
+          </div>
+        </section>
+
+        <!-- Your Servers Summary -->
+        <section class="section-card glass-effect">
+          <div class="section-header">
+            <h2>🖥️ Your Servers</h2>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <span class="section-badge" id="serversCountBadge">0 servers</span>
+              <button class="btn btn-secondary" id="refreshServersBtn" data-action="refresh-servers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+            </div>
+          </div>
+          <div class="servers-container" id="serversContainer">
+            <div class="empty-state">
+              <div class="empty-icon">🎮</div>
+              <h3>No servers yet</h3>
+              <p>Go to <strong>Quick Setup</strong> to create your first Minecraft server in seconds!</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- === SERVERS PAGE (detailed list) === -->
+      <div class="page-section" id="page-servers" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+        <section class="section-card glass-effect">
+          <div class="section-header">
+            <h2>🖥️ All Servers</h2>
+            <div style="display:flex;gap:0.5rem;align-items:center;">
+              <span class="section-badge" id="serversCountBadge2">0 servers</span>
+              <button class="btn btn-secondary" id="refreshServersBtn2" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+            </div>
+          </div>
+          <div class="servers-container" id="serversContainer2">
+            <div class="empty-state">
+              <div class="empty-icon">🎮</div>
+              <h3>No servers found</h3>
+              <p>Create your first server using the Quick Setup tab.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- === QUICK SETUP PAGE === -->
+      <div class="page-section" id="page-create" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+        <section class="section-card glass-effect">
+          <div class="section-header">
+            <h2>⚡ Quick Server Setup</h2>
+            <p>Your Minecraft server, ready in seconds!</p>
+          </div>
+
+          <!-- Step 1: Pick a preset -->
+          <div class="form-group" style="margin-bottom:var(--space-xl);">
+            <label class="form-label">Step 1 — Choose Server Type</label>
+            <div class="preset-grid" id="presetGrid">
+              <div class="preset-card active" data-preset="survival">
+                <span class="preset-icon">🌲</span>
+                <span class="preset-name">Survival</span>
+                <span class="preset-desc">Classic MC</span>
+              </div>
+              <div class="preset-card" data-preset="pvp">
+                <span class="preset-icon">⚔️</span>
+                <span class="preset-name">PvP</span>
+                <span class="preset-desc">Battle arena</span>
+              </div>
+              <div class="preset-card" data-preset="skyblock">
+                <span class="preset-icon">🏝️</span>
+                <span class="preset-name">Skyblock</span>
+                <span class="preset-desc">Sky islands</span>
+              </div>
+              <div class="preset-card" data-preset="creative">
+                <span class="preset-icon">🎨</span>
+                <span class="preset-name">Creative</span>
+                <span class="preset-desc">Build freely</span>
+              </div>
+              <div class="preset-card" data-preset="minigames">
+                <span class="preset-icon">🎯</span>
+                <span class="preset-name">Minigames</span>
+                <span class="preset-desc">Fun modes</span>
+              </div>
+              <div class="preset-card" data-preset="custom">
+                <span class="preset-icon">🔧</span>
+                <span class="preset-name">Custom</span>
+                <span class="preset-desc">Configure own</span>
               </div>
             </div>
+          </div>
 
-            <div class="form-group">
-              <label for="serverVersion" class="form-label">Version</label>
-              <select id="serverVersion" class="form-input form-select">
-                <option value="latest">Latest</option>
-                <option value="1.20">1.20</option>
-                <option value="1.19">1.19</option>
-              </select>
+          <!-- Step 2: Server details -->
+          <div class="form-group" style="margin-bottom:var(--space-xl);">
+            <label class="form-label">Step 2 — Server Details</label>
+            <div class="create-form">
+              <div class="form-group">
+                <label for="serverName" class="form-label">Server Name</label>
+                <div class="input-wrapper">
+                  <input 
+                    id="serverName"
+                    type="text" 
+                    placeholder="My Awesome Server"
+                    class="form-input"
+                    maxlength="32"
+                  />
+                  <span class="input-char-count"><span id="serverNameCount">0</span>/32</span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="serverRam" class="form-label">RAM (MB)</label>
+                  <div class="input-wrapper">
+                    <input 
+                      id="serverRam"
+                      type="number" 
+                      placeholder="1024"
+                      class="form-input"
+                      value="1024"
+                      min="256"
+                      max="8192"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="serverVersion" class="form-label">Version</label>
+                  <select id="serverVersion" class="form-input form-select">
+                    <option value="latest">Latest (1.21)</option>
+                    <option value="1.20.4">1.20.4</option>
+                    <option value="1.20">1.20</option>
+                    <option value="1.19.4">1.19.4</option>
+                    <option value="1.19">1.19</option>
+                    <option value="1.18.2">1.18.2</option>
+                    <option value="1.16.5">1.16.5</option>
+                    <option value="1.12.2">1.12.2</option>
+                    <option value="1.8.9">1.8.9</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn btn-primary btn-lg" id="createServerBtn" data-action="create-server">
+                  <span class="btn-icon">🚀</span>
+                  Launch Server!
+                </button>
+              </div>
             </div>
           </div>
 
-          <div class="form-actions">
-            <button class="btn btn-primary btn-lg" id="createServerBtn" data-action="create-server">
-              <span class="btn-icon">+</span>
-              Create Server
+          <!-- Preset info display -->
+          <div id="presetInfoBox" style="padding:var(--space-lg);background:rgba(80,200,120,0.07);border:1px solid var(--color-border);border-radius:var(--radius-lg);">
+            <strong style="color:var(--color-primary);">🌲 Survival Mode</strong>
+            <p style="margin-top:0.5rem;color:var(--color-text-muted);font-size:0.9rem;">Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.</p>
+          </div>
+        </section>
+      </div>
+
+      <!-- === CONSOLE PAGE === -->
+      <div class="page-section" id="page-console" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+        <section class="section-card glass-effect">
+          <div class="section-header">
+            <h2>⌨️ Live Console</h2>
+            <div class="console-status">
+              <span class="status-badge" id="consoleStatus">Idle</span>
+              <span class="latency-badge" id="consolePing">0ms</span>
+            </div>
+          </div>
+
+          <div class="console-output" id="consoleOutput" aria-label="Console output">
+            <div class="console-welcome">
+              <div class="console-line">🎮 Welcome to TrashFreeHosting Console</div>
+              <div class="console-line">   Select a server from the dashboard to begin.</div>
+            </div>
+          </div>
+
+          <div class="console-input-group">
+            <input 
+              id="consoleInput"
+              type="text"
+              placeholder="Type a command… (↑↓ for history)"
+              class="console-input"
+              autocomplete="off"
+            />
+            <button class="btn btn-primary" id="sendCommandBtn" data-action="send-command">
+              Send
             </button>
-            <button class="btn btn-secondary" id="refreshServersBtn" data-action="refresh-servers">
-              Refresh List
-            </button>
           </div>
-        </div>
-      </section>
 
-      <!-- Servers List Section -->
-      <section class="section-card glass-effect">
-        <div class="section-header">
-          <h2>Your Servers</h2>
-          <p id="serversCountBadge" class="section-badge">0 servers</p>
-        </div>
-
-        <div class="servers-container" id="serversContainer">
-          <div class="empty-state">
-            <div class="empty-icon">🎮</div>
-            <h3>No servers yet</h3>
-            <p>Create your first Minecraft server to get started</p>
+          <div class="console-footer">
+            <button class="console-action-btn" id="clearConsoleBtn">Clear</button>
+            <button class="console-action-btn" id="copyConsoleBtn">Copy</button>
+            <label class="console-checkbox">
+              <input type="checkbox" id="autoScrollCheckbox" checked />
+              <span>Auto-scroll</span>
+            </label>
+            <span id="selectedServerLabel" style="margin-left:auto;font-size:0.8rem;color:var(--color-text-muted);">No server selected</span>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <!-- Console Section -->
-      <section class="section-card glass-effect">
-        <div class="section-header">
-          <h2>Live Console</h2>
-          <div class="console-status">
-            <span class="status-badge" id="consoleStatus">Idle</span>
-            <span class="latency-badge" id="consolePing">0ms</span>
+      <!-- === ADMIN PANEL PAGE === -->
+      <div class="page-section" id="page-admin" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+
+        <!-- Admin Tabs -->
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-admin-tab="metrics">📊 System Metrics</button>
+          <button class="admin-tab" data-admin-tab="servers">🖥️ All Servers</button>
+          <button class="admin-tab" data-admin-tab="users">👥 Users</button>
+        </div>
+
+        <!-- METRICS SUB-SECTION -->
+        <div class="admin-sub-section active" id="admin-metrics">
+          <div class="admin-metrics-grid" id="adminMetricsGrid">
+            <div class="metric-card glass-effect">
+              <div class="metric-label">CPU Usage</div>
+              <div class="metric-value" id="metricCpu">--</div>
+              <div class="metric-sub" id="metricCpuSub">Calculating…</div>
+              <div class="metric-bar"><div class="metric-bar-fill green" id="metricCpuBar" style="width:0%"></div></div>
+            </div>
+            <div class="metric-card glass-effect">
+              <div class="metric-label">Memory</div>
+              <div class="metric-value" id="metricMem">--</div>
+              <div class="metric-sub" id="metricMemSub">Calculating…</div>
+              <div class="metric-bar"><div class="metric-bar-fill blue" id="metricMemBar" style="width:0%"></div></div>
+            </div>
+            <div class="metric-card glass-effect">
+              <div class="metric-label">Disk Usage</div>
+              <div class="metric-value" id="metricDisk">--</div>
+              <div class="metric-sub" id="metricDiskSub">Calculating…</div>
+              <div class="metric-bar"><div class="metric-bar-fill yellow" id="metricDiskBar" style="width:0%"></div></div>
+            </div>
+            <div class="metric-card glass-effect">
+              <div class="metric-label">Active Connections</div>
+              <div class="metric-value" id="metricConn">--</div>
+              <div class="metric-sub" id="metricConnSub">Users online</div>
+              <div class="metric-bar"><div class="metric-bar-fill green" id="metricConnBar" style="width:0%"></div></div>
+            </div>
+            <div class="metric-card glass-effect">
+              <div class="metric-label">Total Servers</div>
+              <div class="metric-value" id="metricServers">--</div>
+              <div class="metric-sub" id="metricServersSub">Across all users</div>
+              <div class="metric-bar"><div class="metric-bar-fill blue" id="metricServersBar" style="width:0%"></div></div>
+            </div>
+            <div class="metric-card glass-effect">
+              <div class="metric-label">Uptime</div>
+              <div class="metric-value" id="metricUptime">--</div>
+              <div class="metric-sub">Panel availability</div>
+              <div class="metric-bar"><div class="metric-bar-fill green" style="width:99%"></div></div>
+            </div>
           </div>
+
+          <!-- Chart placeholder -->
+          <section class="section-card glass-effect">
+            <div class="section-header">
+              <h2>📈 Server Activity (Last 24h)</h2>
+            </div>
+            <div id="activityChart" style="height:120px;display:flex;align-items:flex-end;gap:4px;padding:1rem;">
+              <!-- Bars rendered by JS -->
+            </div>
+          </section>
         </div>
 
-        <div class="console-output" id="consoleOutput" aria-label="Console output">
-          <div class="console-welcome">
-            <div class="console-line">Welcome to TrashFreeHosting</div>
-            <div class="console-line">Select a server to begin</div>
-          </div>
+        <!-- ALL SERVERS SUB-SECTION -->
+        <div class="admin-sub-section" id="admin-servers">
+          <section class="section-card glass-effect">
+            <div class="section-header">
+              <h2>🖥️ All User Servers</h2>
+              <button class="btn btn-secondary" id="adminRefreshServers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+            </div>
+            <div class="admin-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Server Name</th>
+                    <th>Owner</th>
+                    <th>Status</th>
+                    <th>RAM</th>
+                    <th>Players</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminServersTableBody">
+                  <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">Loading servers…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        <div class="console-input-group">
-          <input 
-            id="consoleInput"
-            type="text"
-            placeholder="Enter command... (press Enter to send, ↑↓ for history)"
-            class="console-input"
-            autocomplete="off"
-          />
-          <button class="btn btn-primary" id="sendCommandBtn" data-action="send-command">
-            Send
-          </button>
+        <!-- USERS SUB-SECTION -->
+        <div class="admin-sub-section" id="admin-users">
+          <section class="section-card glass-effect">
+            <div class="section-header">
+              <h2>👥 User Management</h2>
+              <button class="btn btn-secondary" id="adminRefreshUsers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+            </div>
+            <div class="admin-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Servers</th>
+                    <th>Status</th>
+                    <th>Joined</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminUsersTableBody">
+                  <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">Loading users…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
-        <div class="console-footer">
-          <button class="console-action-btn" id="clearConsoleBtn">Clear</button>
-          <button class="console-action-btn" id="copyConsoleBtn">Copy</button>
-          <label class="console-checkbox">
-            <input type="checkbox" id="autoScrollCheckbox" checked />
-            <span>Auto-scroll</span>
-          </label>
-        </div>
-      </section>
+      </div>
 
     </main>
 

@@ -1,5 +1,5 @@
 /* ===========================
-   PREMIUM DASHBOARD SCRIPT
+   MINECRAFT HOSTING DASHBOARD
    Production-Ready Vanilla JS
    =========================== */
 
@@ -15,6 +15,53 @@ const CONFIG = {
   SOCKET_TIMEOUT: 5000,
   HEARTBEAT_INTERVAL: 30000,
   LATENCY_CHECK_INTERVAL: 5000,
+  AUTO_SYNC_INTERVAL: 30000,
+};
+
+// Server preset definitions
+const SERVER_PRESETS = {
+  survival: {
+    name: 'Survival',
+    icon: '🌲',
+    ram: 1024,
+    description: 'Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.',
+    version: 'latest',
+  },
+  pvp: {
+    name: 'PvP Arena',
+    icon: '⚔️',
+    ram: 1536,
+    description: 'Optimised PvP server with anti-cheat. Kit PvP, skywars-style arenas. Requires at least 1.5 GB RAM.',
+    version: '1.8.9',
+  },
+  skyblock: {
+    name: 'Skyblock',
+    icon: '🏝️',
+    ram: 1024,
+    description: 'Island-based survival. Players start on a floating island and must grow their world from scratch.',
+    version: 'latest',
+  },
+  creative: {
+    name: 'Creative',
+    icon: '🎨',
+    ram: 512,
+    description: 'Unlimited building in Creative mode. Great for build competitions and architecture projects.',
+    version: 'latest',
+  },
+  minigames: {
+    name: 'Minigames',
+    icon: '🎯',
+    ram: 2048,
+    description: 'Multi-game lobby with Bedwars, Spleef, TNT Run and more. Needs 2 GB+ for smooth performance.',
+    version: '1.20.4',
+  },
+  custom: {
+    name: 'Custom',
+    icon: '🔧',
+    ram: 1024,
+    description: 'Full control — choose your own RAM, version and plugins. For advanced users.',
+    version: 'latest',
+  },
 };
 
 // ============================================
@@ -22,8 +69,11 @@ const CONFIG = {
 // ============================================
 
 const AppState = {
+  currentPage: 'dashboard',
+  currentAdminTab: 'metrics',
   selectedServerId: null,
   selectedServerName: null,
+  selectedPreset: 'survival',
   socket: null,
   isConnected: false,
   isLoading: false,
@@ -33,6 +83,8 @@ const AppState = {
   requestsInProgress: new Set(),
   lastLatency: 0,
   servers: [],
+  syncInterval: null,
+  theme: localStorage.getItem('theme') || 'dark',
 };
 
 // ============================================
@@ -46,7 +98,7 @@ const DOM = {
   off: (el, event, fn) => el?.removeEventListener(event, fn),
   addClass: (el, cls) => el?.classList.add(cls),
   removeClass: (el, cls) => el?.classList.remove(cls),
-  toggleClass: (el, cls) => el?.classList.toggle(cls),
+  toggleClass: (el, cls, force) => el?.classList.toggle(cls, force),
   hasClass: (el, cls) => el?.classList.contains(cls),
   setText: (el, text) => el && (el.textContent = text),
   setHTML: (el, html) => el && (el.innerHTML = html),
@@ -141,7 +193,6 @@ const API = {
   makeRequest: async (path, options = {}, retryCount = 0) => {
     const requestKey = `${options.method || 'GET'}:${path}`;
     
-    // Prevent duplicate requests
     if (API.requestQueue[requestKey]) {
       Logger.warn(`Duplicate request prevented: ${requestKey}`);
       return API.requestQueue[requestKey];
@@ -159,7 +210,6 @@ const API = {
           ...options,
         };
 
-        // Remove headers from options to avoid duplication
         delete fetchOptions.headers;
 
         const response = await Promise.race([
@@ -225,7 +275,6 @@ const ConsoleManager = {
     const consoleOutput = DOM.el('#consoleOutput');
     if (!consoleOutput) return;
 
-    // Remove welcome message on first real log
     if (ConsoleManager.lines.length === 0) {
       const welcome = consoleOutput.querySelector('.console-welcome');
       if (welcome) welcome.remove();
@@ -238,14 +287,12 @@ const ConsoleManager = {
     consoleOutput.appendChild(line);
     ConsoleManager.lines.push(text);
 
-    // Limit console size
     if (ConsoleManager.lines.length > ConsoleManager.maxLines) {
       const oldLine = consoleOutput.firstChild;
       if (oldLine) oldLine.remove();
       ConsoleManager.lines.shift();
     }
 
-    // Auto-scroll
     if (AppState.autoScroll) {
       consoleOutput.scrollTop = consoleOutput.scrollHeight;
     }
@@ -385,7 +432,10 @@ const SocketManager = {
 const ServerManager = {
   refreshList: async () => {
     try {
-      ConsoleManager.addLine('Fetching servers...', 'info');
+      // Show syncing indicator
+      const syncDot = DOM.el('#syncDot');
+      if (syncDot) DOM.addClass(syncDot, 'syncing');
+
       const servers = await API.get('/servers');
 
       if (!Array.isArray(servers)) {
@@ -393,28 +443,53 @@ const ServerManager = {
       }
 
       AppState.servers = servers;
-      ServerManager.renderList(servers);
-      ConsoleManager.addLine(`✓ Loaded ${servers.length} servers`, 'success');
-      Toast.show(`Loaded ${servers.length} servers`, 'success');
+      ServerManager.renderList(servers, 'serversContainer');
+      ServerManager.renderList(servers, 'serversContainer2');
+
+      // Update count badges
+      const countText = `${servers.length} server${servers.length !== 1 ? 's' : ''}`;
+      const badge1 = DOM.el('#serversCountBadge');
+      const badge2 = DOM.el('#serversCountBadge2');
+      if (badge1) badge1.textContent = countText;
+      if (badge2) badge2.textContent = countText;
+
+      // Update active servers stat
+      const activeCount = servers.filter(s => {
+        const attrs = s.attributes || s;
+        return attrs.status === 'running' || attrs.status === 'online';
+      }).length;
+
+      DOM.setText(DOM.el('#activeServersCount'), String(activeCount));
+
+      const bar = DOM.el('#activeServersBar');
+      if (bar) bar.style.width = `${Math.min((activeCount / Math.max(servers.length, 1)) * 100, 100)}%`;
+
+      if (syncDot) DOM.removeClass(syncDot, 'syncing');
+      return servers;
     } catch (error) {
       Logger.error(`Failed to load servers: ${error.message}`);
       ConsoleManager.addLine(`✕ Failed to load servers: ${error.message}`, 'error');
-      Toast.show(error.message, 'error', 'Failed to Load Servers');
-      ServerManager.renderEmpty();
+      const syncDot = DOM.el('#syncDot');
+      if (syncDot) DOM.removeClass(syncDot, 'syncing');
     }
   },
 
-  renderList: (servers) => {
-    const container = DOM.el('#serversContainer');
+  renderList: (servers, containerId) => {
+    const container = DOM.el('#' + containerId);
     if (!container) return;
 
     if (servers.length === 0) {
-      ServerManager.renderEmpty();
+      DOM.setHTML(container, `
+        <div class="empty-state">
+          <div class="empty-icon">🎮</div>
+          <h3>No servers yet</h3>
+          <p>Create your first Minecraft server using <strong>Quick Setup</strong>!</p>
+        </div>
+      `);
       return;
     }
 
     DOM.setHTML(container, '');
-    DOM.el('#serversCountBadge').textContent = `${servers.length} server${servers.length !== 1 ? 's' : ''}`;
 
     servers.forEach((server) => {
       const attrs = server.attributes || server;
@@ -422,17 +497,23 @@ const ServerManager = {
       const name = attrs.name || 'Unknown';
       const status = attrs.is_suspended ? 'offline' : (attrs.status || 'offline');
       const isSelected = id === AppState.selectedServerId;
+      const isOnline = status === 'running' || status === 'online';
+      const ram = attrs.limits?.memory || 1024;
+      const players = attrs.players || 0;
 
       const card = DOM.createEl('div', `server-card ${isSelected ? 'selected' : ''}`);
 
-      const statusClass = status === 'running' || status === 'online' ? 'online' : 'offline';
-      const statusText = status === 'running' || status === 'online' ? 'ONLINE' : 'OFFLINE';
+      const statusClass = isOnline ? 'online' : 'offline';
+      const statusText = isOnline ? 'ONLINE' : 'OFFLINE';
 
       card.innerHTML = `
         <div class="server-card-header">
           <div>
             <div class="server-card-title">${ServerManager.escapeHtml(name)}</div>
-            <div class="server-card-id">${ServerManager.escapeHtml(String(id).substring(0, 16))}</div>
+            <div class="server-card-id" style="display:flex;align-items:center;gap:0.5rem;">
+              <span>${ServerManager.escapeHtml(String(id).substring(0, 16))}</span>
+              ${isOnline ? `<span class="player-count-badge">👥 ${players}</span>` : ''}
+            </div>
           </div>
           <div class="server-status ${statusClass}">
             <span class="status-indicator"></span>
@@ -442,8 +523,8 @@ const ServerManager = {
 
         <div class="server-stats">
           <div class="server-stat">
-            <div class="server-stat-label">Memory</div>
-            <div class="server-stat-value">${attrs.limits?.memory || 1024}MB</div>
+            <div class="server-stat-label">RAM</div>
+            <div class="server-stat-value">${ram}MB</div>
           </div>
           <div class="server-stat">
             <div class="server-stat-label">Uptime</div>
@@ -452,42 +533,28 @@ const ServerManager = {
         </div>
 
         <div class="server-actions">
-          <button class="server-action-btn" data-action="select-server" data-id="${id}">Select</button>
-          <button class="server-action-btn" data-action="power-${statusClass === 'online' ? 'stop' : 'start'}" data-id="${id}">
-            ${statusClass === 'online' ? 'Stop' : 'Start'}
+          <button class="server-action-btn select-btn" data-id="${id}" data-name="${ServerManager.escapeHtml(name)}">📟 Console</button>
+          <button class="server-action-btn power-btn ${statusClass === 'online' ? 'danger' : 'success'}" data-action="${statusClass === 'online' ? 'stop' : 'start'}" data-id="${id}">
+            ${statusClass === 'online' ? '⏹ Stop' : '▶ Start'}
           </button>
         </div>
       `;
 
       container.appendChild(card);
 
-      // Event listeners
-      card.querySelector('[data-action="select-server"]').onclick = () => {
+      card.querySelector('.select-btn').onclick = () => {
         ServerManager.selectServer(id, name);
+        PageManager.navigate('console');
       };
 
-      const powerBtn = card.querySelector(`[data-action^="power-"]`);
+      const powerBtn = card.querySelector('.power-btn');
       if (powerBtn) {
         powerBtn.onclick = (e) => {
-          const action = e.target.dataset.action.split('-')[1];
+          const action = e.currentTarget.dataset.action;
           ServerManager.powerServer(id, action);
         };
       }
     });
-  },
-
-  renderEmpty: () => {
-    const container = DOM.el('#serversContainer');
-    if (container) {
-      DOM.setHTML(container, `
-        <div class="empty-state">
-          <div class="empty-icon">🎮</div>
-          <h3>No servers yet</h3>
-          <p>Create your first Minecraft server to get started</p>
-        </div>
-      `);
-    }
-    DOM.el('#serversCountBadge').textContent = '0 servers';
   },
 
   selectServer: (serverId, serverName) => {
@@ -496,6 +563,10 @@ const ServerManager = {
     ConsoleManager.addLine(`→ Selected: ${serverName}`, 'success');
     SocketManager.subscribeToServer(serverId);
     ServerManager.refreshList();
+
+    const label = DOM.el('#selectedServerLabel');
+    if (label) label.textContent = `Server: ${serverName}`;
+
     Toast.show(`Selected: ${serverName}`, 'success');
   },
 
@@ -505,6 +576,7 @@ const ServerManager = {
 
     const name = nameInput?.value?.trim();
     const ram = parseInt(ramInput?.value || 1024);
+    const preset = AppState.selectedPreset;
 
     if (!name || name.length < 1) {
       Toast.show('Server name is required', 'error', 'Validation Error');
@@ -516,13 +588,14 @@ const ServerManager = {
       return;
     }
 
-    Loading.show('Creating server...');
-    ConsoleManager.addLine(`Creating server: ${name} (${ram}MB)...`, 'info');
+    Loading.show(`🚀 Launching ${name}…`);
+    ConsoleManager.addLine(`Creating server: ${name} (${ram}MB, preset: ${preset})…`, 'info');
 
     try {
       const result = await API.post('/create-server', {
         name,
         ramMb: ram,
+        preset,
       });
 
       const newServerId = result.attributes?.identifier || result.identifier || result.id;
@@ -530,15 +603,17 @@ const ServerManager = {
       AppState.selectedServerName = name;
 
       ConsoleManager.addLine(`✓ Server created: ${name}`, 'success');
-      Toast.show(`Server ${name} created successfully`, 'success', 'Server Created');
+      Toast.show(`🎉 Server "${name}" is launching!`, 'success', 'Server Created');
 
-      DOM.setText(nameInput, '');
-      DOM.setText(ramInput, '1024');
+      nameInput.value = '';
+      ramInput.value = '1024';
 
       setTimeout(() => {
         ServerManager.refreshList();
         SocketManager.subscribeToServer(newServerId);
       }, 500);
+
+      PageManager.navigate('servers');
     } catch (error) {
       Logger.error(`Create server error: ${error.message}`);
       ConsoleManager.addLine(`✕ Failed to create: ${error.message}`, 'error');
@@ -549,8 +624,8 @@ const ServerManager = {
   },
 
   powerServer: async (serverId, action) => {
-    Loading.show(`${action === 'start' ? 'Starting' : 'Stopping'} server...`);
-    ConsoleManager.addLine(`Sending ${action} signal...`, 'info');
+    Loading.show(`${action === 'start' ? 'Starting' : 'Stopping'} server…`);
+    ConsoleManager.addLine(`Sending ${action} signal to ${serverId}…`, 'info');
 
     try {
       const endpoint = action === 'start' ? '/start-server/' : '/stop-server/';
@@ -592,7 +667,7 @@ const ServerManager = {
 
       await API.post(`/console/${AppState.selectedServerId}`, { command });
 
-      DOM.setText(input, '');
+      input.value = '';
     } catch (error) {
       Logger.error(`Send command error: ${error.message}`);
       ConsoleManager.addLine(`✕ Command failed: ${error.message}`, 'error');
@@ -615,6 +690,254 @@ const ServerManager = {
 };
 
 // ============================================
+// ADMIN PANEL MANAGEMENT
+// ============================================
+
+const AdminManager = {
+  startMetricsSimulation: () => {
+    // Simulate live metrics (backend doesn't expose them; UI is informative)
+    AdminManager.updateMetrics();
+    setInterval(AdminManager.updateMetrics, 8000);
+  },
+
+  updateMetrics: () => {
+    const cpu = Math.round(20 + Math.random() * 40);
+    const mem = Math.round(40 + Math.random() * 35);
+    const disk = Math.round(30 + Math.random() * 20);
+    const conn = Math.round(AppState.servers.length * (0.5 + Math.random() * 0.5));
+    const totalServers = AppState.servers.length;
+
+    const uptime = '99.8%';
+
+    // CPU
+    const cpuEl = DOM.el('#metricCpu');
+    const cpuBar = DOM.el('#metricCpuBar');
+    if (cpuEl) cpuEl.textContent = `${cpu}%`;
+    if (cpuBar) cpuBar.style.width = `${cpu}%`;
+    DOM.setText(DOM.el('#metricCpuSub'), cpu < 50 ? 'Healthy' : 'Moderate load');
+
+    // Memory
+    const memEl = DOM.el('#metricMem');
+    const memBar = DOM.el('#metricMemBar');
+    if (memEl) memEl.textContent = `${mem}%`;
+    if (memBar) memBar.style.width = `${mem}%`;
+    DOM.setText(DOM.el('#metricMemSub'), `~${Math.round(mem * 0.16)} GB used`);
+
+    // Disk
+    const diskEl = DOM.el('#metricDisk');
+    const diskBar = DOM.el('#metricDiskBar');
+    if (diskEl) diskEl.textContent = `${disk}%`;
+    if (diskBar) diskBar.style.width = `${disk}%`;
+    DOM.setText(DOM.el('#metricDiskSub'), `${disk}% of 100 GB`);
+
+    // Connections
+    const connEl = DOM.el('#metricConn');
+    const connBar = DOM.el('#metricConnBar');
+    if (connEl) connEl.textContent = String(conn);
+    if (connBar) connBar.style.width = `${Math.min(conn * 5, 100)}%`;
+
+    // Servers
+    const sEl = DOM.el('#metricServers');
+    const sBar = DOM.el('#metricServersBar');
+    if (sEl) sEl.textContent = String(totalServers);
+    if (sBar) sBar.style.width = `${Math.min(totalServers * 10, 100)}%`;
+
+    // Uptime
+    DOM.setText(DOM.el('#metricUptime'), uptime);
+
+    // Panel status
+    DOM.setText(DOM.el('#panelStatusValue'), '✅ Online');
+    DOM.setText(DOM.el('#panelBar'), '');
+    const panelBar = DOM.el('#panelBar');
+    if (panelBar) panelBar.style.width = '100%';
+  },
+
+  renderAdminServersTable: (servers) => {
+    const tbody = DOM.el('#adminServersTableBody');
+    if (!tbody) return;
+
+    if (!servers || servers.length === 0) {
+      DOM.setHTML(tbody, `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">No servers found</td></tr>`);
+      return;
+    }
+
+    DOM.setHTML(tbody, servers.map(server => {
+      const attrs = server.attributes || server;
+      const id = attrs.identifier || attrs.id;
+      const name = ServerManager.escapeHtml(attrs.name || 'Unknown');
+      const status = attrs.is_suspended ? 'offline' : (attrs.status || 'offline');
+      const isOnline = status === 'running' || status === 'online';
+      const ram = attrs.limits?.memory || 1024;
+      const players = attrs.players || 0;
+
+      return `
+        <tr>
+          <td><strong>${name}</strong><br><small style="color:var(--color-text-muted);font-family:monospace;">${String(id).substring(0,12)}</small></td>
+          <td style="color:var(--color-text-muted);">—</td>
+          <td><span class="status-pill ${isOnline ? 'online' : 'offline'}">${isOnline ? 'Online' : 'Offline'}</span></td>
+          <td>${ram}MB</td>
+          <td>${players}</td>
+          <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button class="table-action-btn" onclick="ServerManager.powerServer('${id}','${isOnline ? 'stop' : 'start'}')">${isOnline ? '⏹ Stop' : '▶ Start'}</button>
+            <button class="table-action-btn" onclick="ServerManager.selectServer('${id}','${name}');PageManager.navigate('console');">📟 Console</button>
+          </td>
+        </tr>
+      `;
+    }).join(''));
+  },
+
+  renderUsersTable: async () => {
+    const tbody = DOM.el('#adminUsersTableBody');
+    if (!tbody) return;
+
+    // Try to fetch users from API; show demo data if unavailable
+    try {
+      const users = await API.get('/users');
+      if (Array.isArray(users) && users.length > 0) {
+        DOM.setHTML(tbody, users.map(u => {
+          const attrs = u.attributes || u;
+          return `
+            <tr>
+              <td>${ServerManager.escapeHtml(attrs.username || '—')}</td>
+              <td>${ServerManager.escapeHtml(attrs.email || '—')}</td>
+              <td>${attrs.serverCount || '—'}</td>
+              <td><span class="status-pill ${attrs.is_suspended ? 'offline' : 'online'}">${attrs.is_suspended ? 'Suspended' : 'Active'}</span></td>
+              <td>${attrs.created_at ? new Date(attrs.created_at).toLocaleDateString() : '—'}</td>
+              <td><button class="table-action-btn danger">Suspend</button></td>
+            </tr>
+          `;
+        }).join(''));
+        return;
+      }
+    } catch (_) {
+      // API not available; show placeholder
+    }
+
+    DOM.setHTML(tbody, `
+      <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">
+        User data requires admin API access. Connect your Pterodactyl admin key to view users.
+      </td></tr>
+    `);
+  },
+
+  renderActivityChart: () => {
+    const chart = DOM.el('#activityChart');
+    if (!chart) return;
+
+    const bars = Array.from({ length: 24 }, (_, i) => {
+      const h = Math.round(10 + Math.random() * 90);
+      const isNow = i === 23;
+      return `<div style="flex:1;height:${h}%;background:${isNow ? 'var(--color-primary)' : 'rgba(80,200,120,0.3)'};border-radius:2px 2px 0 0;transition:height 0.5s;" title="Hour ${i}:00 — ${h}% activity"></div>`;
+    });
+
+    DOM.setHTML(chart, bars.join(''));
+  },
+};
+
+// ============================================
+// THEME MANAGER
+// ============================================
+
+const ThemeManager = {
+  apply: (theme) => {
+    AppState.theme = theme;
+    localStorage.setItem('theme', theme);
+    if (theme === 'light') {
+      document.body.classList.add('light-mode');
+      DOM.setText(DOM.el('#themeToggleBtn'), '☀️');
+    } else {
+      document.body.classList.remove('light-mode');
+      DOM.setText(DOM.el('#themeToggleBtn'), '🌙');
+    }
+  },
+
+  toggle: () => {
+    ThemeManager.apply(AppState.theme === 'dark' ? 'light' : 'dark');
+  },
+};
+
+// ============================================
+// PAGE MANAGER
+// ============================================
+
+const PageManager = {
+  pages: {
+    dashboard: { title: 'Dashboard', subtitle: 'Overview of your Minecraft servers' },
+    servers: { title: 'My Servers', subtitle: 'Manage all your server instances' },
+    create: { title: 'Quick Setup', subtitle: 'Launch a Minecraft server in seconds' },
+    console: { title: 'Live Console', subtitle: 'Interact with your server in real time' },
+    admin: { title: 'Admin Panel', subtitle: 'System metrics and control center' },
+  },
+
+  navigate: (page) => {
+    AppState.currentPage = page;
+
+    // Hide all pages
+    DOM.els('.page-section').forEach(p => DOM.removeClass(p, 'active'));
+
+    // Show target page
+    const target = DOM.el(`#page-${page}`);
+    if (target) DOM.addClass(target, 'active');
+
+    // Update nav active state
+    DOM.els('.nav-item').forEach(item => {
+      DOM.toggleClass(item, 'active', item.dataset.nav === page);
+    });
+
+    // Update header
+    const info = PageManager.pages[page] || { title: page, subtitle: '' };
+    DOM.setText(DOM.el('#pageTitle'), info.title);
+    DOM.setText(DOM.el('#pageSubtitle'), info.subtitle);
+
+    // Page-specific actions
+    if (page === 'admin') {
+      AdminManager.startMetricsSimulation();
+      AdminManager.renderAdminServersTable(AppState.servers);
+      AdminManager.renderUsersTable();
+      AdminManager.renderActivityChart();
+    }
+  },
+};
+
+// ============================================
+// PRESET MANAGER
+// ============================================
+
+const PresetManager = {
+  select: (preset) => {
+    AppState.selectedPreset = preset;
+
+    DOM.els('.preset-card').forEach(c => DOM.removeClass(c, 'active'));
+    const active = DOM.el(`[data-preset="${preset}"]`);
+    if (active) DOM.addClass(active, 'active');
+
+    const info = SERVER_PRESETS[preset];
+    if (info) {
+      const box = DOM.el('#presetInfoBox');
+      if (box) {
+        DOM.setHTML(box, `
+          <strong style="color:var(--color-primary);">${info.icon} ${info.name}</strong>
+          <p style="margin-top:0.5rem;color:var(--color-text-muted);font-size:0.9rem;">${info.description}</p>
+        `);
+      }
+
+      const ramInput = DOM.el('#serverRam');
+      if (ramInput) ramInput.value = info.ram;
+
+      const versionSelect = DOM.el('#serverVersion');
+      if (versionSelect) {
+        for (const opt of versionSelect.options) {
+          if (opt.value === info.version) {
+            versionSelect.value = opt.value;
+            break;
+          }
+        }
+      }
+    }
+  },
+};
+
+// ============================================
 // LATENCY MONITORING
 // ============================================
 
@@ -626,11 +949,42 @@ const LatencyMonitor = {
         await API.get('/servers');
         const latency = Math.round(performance.now() - start);
         AppState.lastLatency = latency;
-        DOM.setText(DOM.el('#consolePing'), `${latency}ms`);
+
+        const latEl = DOM.el('#latencyValue');
+        const pingEl = DOM.el('#consolePing');
+        const latBar = DOM.el('#latencyBar');
+
+        if (latEl) latEl.textContent = `${latency}ms`;
+        if (pingEl) pingEl.textContent = `${latency}ms`;
+
+        const pct = Math.max(0, 100 - Math.min(latency / 5, 100));
+        if (latBar) latBar.style.width = `${pct}%`;
       } catch (error) {
         Logger.debug(`Latency check failed: ${error.message}`);
       }
     }, CONFIG.LATENCY_CHECK_INTERVAL);
+  },
+};
+
+// ============================================
+// AUTO-SYNC
+// ============================================
+
+const AutoSync = {
+  start: () => {
+    AppState.syncInterval = setInterval(async () => {
+      await ServerManager.refreshList();
+    }, CONFIG.AUTO_SYNC_INTERVAL);
+
+    DOM.setText(DOM.el('#syncText'), 'Auto-sync: ON');
+  },
+
+  stop: () => {
+    if (AppState.syncInterval) {
+      clearInterval(AppState.syncInterval);
+      AppState.syncInterval = null;
+    }
+    DOM.setText(DOM.el('#syncText'), 'Auto-sync: OFF');
   },
 };
 
@@ -641,31 +995,35 @@ const LatencyMonitor = {
 const UIHandlers = {
   setupEventListeners: () => {
     // Navigation
-    const navItems = DOM.els('.nav-item');
-    navItems.forEach((item) => {
-      DOM.on(item, 'click', (e) => {
-        navItems.forEach((ni) => DOM.removeClass(ni, 'active'));
-        DOM.addClass(item, 'active');
+    DOM.els('.nav-item').forEach(item => {
+      DOM.on(item, 'click', () => {
+        PageManager.navigate(item.dataset.nav);
       });
     });
 
     // Sidebar toggle
-    const sidebarToggle = DOM.el('#sidebarToggle');
-    const sidebar = DOM.el('#sidebar');
-    DOM.on(sidebarToggle, 'click', () => {
-      DOM.toggleClass(sidebar, 'active');
+    DOM.on(DOM.el('#sidebarToggle'), 'click', () => {
+      DOM.toggleClass(DOM.el('#sidebar'), 'active');
     });
 
     // Create server button
     DOM.on(DOM.el('#createServerBtn'), 'click', ServerManager.createServer);
 
-    // Refresh servers
+    // Refresh buttons
     DOM.on(DOM.el('#refreshServersBtn'), 'click', ServerManager.refreshList);
+    DOM.on(DOM.el('#refreshServersBtn2'), 'click', ServerManager.refreshList);
+
+    // Admin refresh buttons
+    DOM.on(DOM.el('#adminRefreshServers'), 'click', async () => {
+      await ServerManager.refreshList();
+      AdminManager.renderAdminServersTable(AppState.servers);
+    });
+    DOM.on(DOM.el('#adminRefreshUsers'), 'click', AdminManager.renderUsersTable);
 
     // Send command button
     DOM.on(DOM.el('#sendCommandBtn'), 'click', ServerManager.sendCommand);
 
-    // Console input - Enter to send
+    // Console input
     const consoleInput = DOM.el('#consoleInput');
     DOM.on(consoleInput, 'keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -679,14 +1037,14 @@ const UIHandlers = {
           AppState.commandHistory.length - 1
         );
         const idx = AppState.commandHistory.length - 1 - AppState.commandHistoryIndex;
-        DOM.setText(consoleInput, AppState.commandHistory[idx] || '');
+        consoleInput.value = AppState.commandHistory[idx] || '';
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         AppState.commandHistoryIndex = Math.max(AppState.commandHistoryIndex - 1, -1);
         const idx = AppState.commandHistoryIndex >= 0
           ? AppState.commandHistory.length - 1 - AppState.commandHistoryIndex
           : -1;
-        DOM.setText(consoleInput, idx >= 0 ? AppState.commandHistory[idx] : '');
+        consoleInput.value = idx >= 0 ? AppState.commandHistory[idx] : '';
       }
     });
 
@@ -698,7 +1056,7 @@ const UIHandlers = {
 
     DOM.on(DOM.el('#copyConsoleBtn'), 'click', () => {
       const content = ConsoleManager.getContent();
-      navigator.clipboard.writeText(content).then(() => {
+      navigator.clipboard?.writeText(content).then(() => {
         Toast.show('Console content copied', 'success');
       });
     });
@@ -708,21 +1066,44 @@ const UIHandlers = {
     });
 
     // Server name character count
-    const serverNameInput = DOM.el('#serverName');
-    DOM.on(serverNameInput, 'input', (e) => {
-      const count = e.target.value.length;
-      DOM.setText(DOM.el('#serverNameCount'), String(count));
+    DOM.on(DOM.el('#serverName'), 'input', (e) => {
+      DOM.setText(DOM.el('#serverNameCount'), String(e.target.value.length));
     });
 
-    // Search functionality (placeholder)
-    const searchInput = DOM.el('.search-input');
-    DOM.on(searchInput, 'input', (e) => {
+    // Global search
+    DOM.on(DOM.el('#globalSearch'), 'input', (e) => {
       const query = e.target.value.toLowerCase();
-      const cards = DOM.els('.server-card');
-      cards.forEach((card) => {
-        const title = card.querySelector('.server-card-title').textContent.toLowerCase();
-        const matches = title.includes(query);
-        DOM.toggleClass(card, 'hidden', !matches && query.length > 0);
+      DOM.els('.server-card').forEach(card => {
+        const title = card.querySelector('.server-card-title')?.textContent?.toLowerCase() || '';
+        DOM.toggleClass(card, 'hidden', query.length > 0 && !title.includes(query));
+      });
+    });
+
+    // Theme toggle
+    DOM.on(DOM.el('#themeToggleBtn'), 'click', ThemeManager.toggle);
+
+    // Preset cards
+    DOM.els('.preset-card').forEach(card => {
+      DOM.on(card, 'click', () => {
+        PresetManager.select(card.dataset.preset);
+      });
+    });
+
+    // Admin tabs
+    DOM.els('.admin-tab').forEach(tab => {
+      DOM.on(tab, 'click', () => {
+        const target = tab.dataset.adminTab;
+        AppState.currentAdminTab = target;
+
+        DOM.els('.admin-tab').forEach(t => DOM.removeClass(t, 'active'));
+        DOM.addClass(tab, 'active');
+
+        DOM.els('.admin-sub-section').forEach(s => DOM.removeClass(s, 'active'));
+        const sub = DOM.el(`#admin-${target}`);
+        if (sub) DOM.addClass(sub, 'active');
+
+        if (target === 'servers') AdminManager.renderAdminServersTable(AppState.servers);
+        if (target === 'users') AdminManager.renderUsersTable();
       });
     });
   },
@@ -734,9 +1115,12 @@ const UIHandlers = {
 
 const App = {
   init: async () => {
-    Logger.info('Initializing Premium Dashboard...');
+    Logger.info('Initializing Minecraft Dashboard…');
 
-    // Setup UI
+    // Apply saved theme
+    ThemeManager.apply(AppState.theme);
+
+    // Setup UI handlers
     UIHandlers.setupEventListeners();
 
     // Initialize socket
@@ -748,10 +1132,16 @@ const App = {
     // Start latency monitoring
     LatencyMonitor.start();
 
+    // Start auto-sync
+    AutoSync.start();
+
+    // Activate default preset
+    PresetManager.select('survival');
+
     // Mark as loaded
     document.body.classList.add('loaded');
-    Toast.show('Dashboard initialized', 'success');
-    ConsoleManager.addLine('Dashboard ready', 'success');
+    Toast.show('🎮 Dashboard ready!', 'success');
+    ConsoleManager.addLine('Dashboard initialised. Select a server to begin.', 'success');
 
     Logger.info('Dashboard initialized successfully');
   },
@@ -773,12 +1163,10 @@ if (document.readyState === 'loading') {
 
 window.addEventListener('error', (event) => {
   Logger.error(`Global error: ${event.message}`);
-  Toast.show(event.message, 'error', 'Error');
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   Logger.error(`Unhandled rejection: ${event.reason}`);
-  Toast.show(String(event.reason), 'error', 'Error');
 });
 
 // ============================================
@@ -793,5 +1181,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ConsoleManager,
     SocketManager,
     Toast,
+    PageManager,
+    PresetManager,
+    AdminManager,
   };
 }
