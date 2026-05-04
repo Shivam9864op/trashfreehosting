@@ -196,7 +196,7 @@ async function sendAuthEvent(type, username) {
 }
 
 function logAuthEvent(type, username) {
-  const key = `bp_auth_${type}_${username}`;
+  const key = `th_auth_${type}_${username}`;
   if(sessionStorage.getItem(key)) return;
   sessionStorage.setItem(key, '1');
   sendAuthEvent(type, username);
