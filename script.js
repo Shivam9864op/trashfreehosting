@@ -1,1188 +1,959 @@
-/* ===========================
-   MINECRAFT HOSTING DASHBOARD
-   Production-Ready Vanilla JS
-   =========================== */
+/* =============================================================================
+   TrashFreeHosting — Dashboard  |  Vanilla JS  |  Production-Ready
+   =============================================================================
+   Architecture:
+     Frontend  →  https://shivam9864op.github.io/trashfreehosting/
+     API Base  →  https://hosting.trashmcpe.com/backend/api
+     Socket    →  https://hosting.trashmcpe.com  (path: /socket.io)
+   ============================================================================= */
 
-// ============================================
-// CONFIGURATION & CONSTANTS
-// ============================================
+'use strict';
 
-const CONFIG = {
-  API_BASE: localStorage.getItem('apiBase') || 'https://hosting.trashmcpe.com/backend/api',
-  SOCKET_BASE: localStorage.getItem('socketBase') || 'https://hosting.trashmcpe.com',
-  RETRY_ATTEMPTS: 5,
-  RETRY_DELAY: 1000,
-  SOCKET_TIMEOUT: 5000,
-  HEARTBEAT_INTERVAL: 30000,
-  LATENCY_CHECK_INTERVAL: 5000,
-  AUTO_SYNC_INTERVAL: 30000,
+/* =============================================================================
+   1.  CONFIGURATION
+   ============================================================================= */
+const CONFIG = Object.freeze({
+  API_BASE        : 'https://hosting.trashmcpe.com/backend/api',
+  SOCKET_BASE     : 'https://hosting.trashmcpe.com',
+  SOCKET_PATH     : '/socket.io',
+  FETCH_TIMEOUT   : 15_000,   // ms
+  RETRY_ATTEMPTS  : 3,
+  RETRY_BASE_DELAY: 800,      // ms  (doubles each retry)
+  AUTO_SYNC_MS    : 30_000,   // server list refresh interval
+  CONSOLE_MAX_LINES: 1_000,
+});
+
+/* =============================================================================
+   2.  SERVER PRESETS
+   ============================================================================= */
+const PRESETS = {
+  survival  : { label: 'Survival',  icon: '🌲', ram: 1024, version: 'latest', desc: 'Classic Survival with PvP. Perfect for small friend groups. Includes auto-restart and nightly backups.'     },
+  pvp       : { label: 'PvP Arena', icon: '⚔️', ram: 1536, version: '1.8.9',  desc: 'Optimised PvP with anti-cheat. Kit PvP and skywars arenas. Requires at least 1.5 GB RAM.'                  },
+  skyblock  : { label: 'Skyblock',  icon: '🏝️', ram: 1024, version: 'latest', desc: 'Island-based survival — start on a floating island and grow from scratch.'                                   },
+  creative  : { label: 'Creative',  icon: '🎨', ram:  512, version: 'latest', desc: 'Unlimited building in Creative mode. Great for build competitions and architecture projects.'                 },
+  minigames : { label: 'Minigames', icon: '🎯', ram: 2048, version: '1.20.4', desc: 'Multi-game lobby with Bedwars, Spleef, TNT-Run and more. Needs 2 GB+ for smooth performance.'               },
+  custom    : { label: 'Custom',    icon: '🔧', ram: 1024, version: 'latest', desc: 'Full control — choose your own RAM, version and plugins. For advanced users.'                                },
 };
 
-// Server preset definitions
-const SERVER_PRESETS = {
-  survival: {
-    name: 'Survival',
-    icon: '🌲',
-    ram: 1024,
-    description: 'Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.',
-    version: 'latest',
-  },
-  pvp: {
-    name: 'PvP Arena',
-    icon: '⚔️',
-    ram: 1536,
-    description: 'Optimised PvP server with anti-cheat. Kit PvP, skywars-style arenas. Requires at least 1.5 GB RAM.',
-    version: '1.8.9',
-  },
-  skyblock: {
-    name: 'Skyblock',
-    icon: '🏝️',
-    ram: 1024,
-    description: 'Island-based survival. Players start on a floating island and must grow their world from scratch.',
-    version: 'latest',
-  },
-  creative: {
-    name: 'Creative',
-    icon: '🎨',
-    ram: 512,
-    description: 'Unlimited building in Creative mode. Great for build competitions and architecture projects.',
-    version: 'latest',
-  },
-  minigames: {
-    name: 'Minigames',
-    icon: '🎯',
-    ram: 2048,
-    description: 'Multi-game lobby with Bedwars, Spleef, TNT Run and more. Needs 2 GB+ for smooth performance.',
-    version: '1.20.4',
-  },
-  custom: {
-    name: 'Custom',
-    icon: '🔧',
-    ram: 1024,
-    description: 'Full control — choose your own RAM, version and plugins. For advanced users.',
-    version: 'latest',
-  },
+/* =============================================================================
+   3.  APPLICATION STATE
+   ============================================================================= */
+const State = {
+  page           : 'dashboard',
+  adminTab       : 'metrics',
+  preset         : 'survival',
+  servers        : [],
+  selectedId     : null,   // 8-char Pterodactyl identifier
+  selectedName   : null,
+  socket         : null,
+  connected      : false,
+  cmdHistory     : [],
+  cmdHistoryIdx  : -1,
+  autoScroll     : true,
+  syncTimer      : null,
+  metricsTimer   : null,
+  theme          : localStorage.getItem('tfh_theme') || 'dark',
+  consoleLines   : [],
 };
 
-// ============================================
-// STATE MANAGEMENT
-// ============================================
+/* =============================================================================
+   4.  DOM HELPERS
+   ============================================================================= */
+const $ = (sel, ctx = document) => ctx.querySelector(sel);
+const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
+const el = (tag, cls = '') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
+const setText = (sel, txt) => { const e = typeof sel === 'string' ? $(sel) : sel; if (e) e.textContent = txt; };
+const setHTML = (sel, html) => { const e = typeof sel === 'string' ? $(sel) : sel; if (e) e.innerHTML = html; };
+const addClass    = (sel, cls) => { const e = typeof sel === 'string' ? $(sel) : sel; e?.classList.add(cls);            };
+const removeClass = (sel, cls) => { const e = typeof sel === 'string' ? $(sel) : sel; e?.classList.remove(cls);         };
+const toggleClass = (sel, cls, force) => { const e = typeof sel === 'string' ? $(sel) : sel; e?.classList.toggle(cls, force); };
+const escHtml = (str) => { const d = document.createElement('div'); d.textContent = String(str); return d.innerHTML; };
 
-const AppState = {
-  currentPage: 'dashboard',
-  currentAdminTab: 'metrics',
-  selectedServerId: null,
-  selectedServerName: null,
-  selectedPreset: 'survival',
-  socket: null,
-  isConnected: false,
-  isLoading: false,
-  commandHistory: [],
-  commandHistoryIndex: -1,
-  autoScroll: true,
-  requestsInProgress: new Set(),
-  lastLatency: 0,
-  servers: [],
-  syncInterval: null,
-  theme: localStorage.getItem('theme') || 'dark',
+/* =============================================================================
+   5.  LOGGER
+   ============================================================================= */
+const Log = {
+  info : (...a) => console.log  ('[TFH INFO]',  ...a),
+  warn : (...a) => console.warn ('[TFH WARN]',  ...a),
+  error: (...a) => console.error('[TFH ERROR]', ...a),
 };
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
+/* =============================================================================
+   6.  TOAST NOTIFICATIONS
+   ============================================================================= */
+const Toast = (() => {
+  const ICONS = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
 
-const DOM = {
-  el: (selector) => document.querySelector(selector),
-  els: (selector) => document.querySelectorAll(selector),
-  on: (el, event, fn) => el?.addEventListener(event, fn),
-  off: (el, event, fn) => el?.removeEventListener(event, fn),
-  addClass: (el, cls) => el?.classList.add(cls),
-  removeClass: (el, cls) => el?.classList.remove(cls),
-  toggleClass: (el, cls, force) => el?.classList.toggle(cls, force),
-  hasClass: (el, cls) => el?.classList.contains(cls),
-  setText: (el, text) => el && (el.textContent = text),
-  setHTML: (el, html) => el && (el.innerHTML = html),
-  createEl: (tag, cls = '') => {
-    const el = document.createElement(tag);
-    if (cls) el.className = cls;
-    return el;
-  },
-};
-
-const Logger = {
-  info: (msg) => console.log(`[INFO] ${msg}`),
-  error: (msg) => console.error(`[ERROR] ${msg}`),
-  warn: (msg) => console.warn(`[WARN] ${msg}`),
-  debug: (msg) => console.debug(`[DEBUG] ${msg}`),
-};
-
-// ============================================
-// TOAST NOTIFICATION SYSTEM
-// ============================================
-
-const Toast = {
-  show: (message, type = 'info', title = '', duration = 4000) => {
-    const container = DOM.el('#toastContainer');
+  function show(message, type = 'info', title = '', duration = 4500) {
+    const container = $('#toastContainer');
     if (!container) return;
 
-    const toast = DOM.createEl('div', 'toast');
-    toast.classList.add(type);
-
-    const icons = {
-      success: '✓',
-      error: '✕',
-      warning: '⚠',
-      info: 'ℹ',
-    };
-
-    toast.innerHTML = `
-      <span class="toast-icon">${icons[type] || '•'}</span>
+    const wrap = el('div', `toast ${type}`);
+    wrap.innerHTML = `
+      <span class="toast-icon">${ICONS[type] || '•'}</span>
       <div class="toast-content">
-        ${title ? `<div class="toast-title">${title}</div>` : ''}
-        <div class="toast-message">${message}</div>
+        ${title ? `<div class="toast-title">${escHtml(title)}</div>` : ''}
+        <div class="toast-message">${escHtml(message)}</div>
       </div>
-      <button class="toast-close">✕</button>
-    `;
+      <button class="toast-close" aria-label="Dismiss">✕</button>`;
 
-    const closeBtn = toast.querySelector('.toast-close');
-    const closeToast = () => {
-      toast.style.animation = 'slideInRight 0.3s ease-out reverse';
-      setTimeout(() => toast.remove(), 300);
+    const dismiss = () => {
+      wrap.style.animation = 'slideInRight 0.25s ease-out reverse forwards';
+      setTimeout(() => wrap.remove(), 260);
     };
 
-    DOM.on(closeBtn, 'click', closeToast);
+    wrap.querySelector('.toast-close').onclick = dismiss;
+    container.appendChild(wrap);
+    if (duration > 0) setTimeout(dismiss, duration);
+  }
 
-    container.appendChild(toast);
+  return { show, success: (m, t) => show(m, 'success', t), error: (m, t) => show(m, 'error', t), warn: (m, t) => show(m, 'warning', t), info: (m, t) => show(m, 'info', t) };
+})();
 
-    if (duration > 0) {
-      setTimeout(closeToast, duration);
-    }
-  },
-};
-
-// ============================================
-// LOADING STATES
-// ============================================
-
+/* =============================================================================
+   7.  LOADING OVERLAY
+   ============================================================================= */
 const Loading = {
-  show: (text = 'Loading...') => {
-    const overlay = DOM.el('#loadingOverlay');
-    const loaderText = DOM.el('#loaderText');
-    if (overlay) {
-      DOM.setText(loaderText, text);
-      DOM.addClass(overlay, 'active');
-      AppState.isLoading = true;
-    }
+  show(text = 'Loading…') {
+    setText('#loaderText', text);
+    addClass('#loadingOverlay', 'active');
   },
-  hide: () => {
-    const overlay = DOM.el('#loadingOverlay');
-    if (overlay) {
-      DOM.removeClass(overlay, 'active');
-      AppState.isLoading = false;
-    }
+  hide() {
+    removeClass('#loadingOverlay', 'active');
   },
 };
 
-// ============================================
-// API WITH RETRY LOGIC
-// ============================================
+/* =============================================================================
+   8.  FETCH / API  (with retry + timeout)
+   ============================================================================= */
+const API = (() => {
+  // Dedup cache — prevents firing identical requests simultaneously
+  const inflight = new Map();
 
-const API = {
-  requestQueue: {},
-  
-  makeRequest: async (path, options = {}, retryCount = 0) => {
-    const requestKey = `${options.method || 'GET'}:${path}`;
-    
-    if (API.requestQueue[requestKey]) {
-      Logger.warn(`Duplicate request prevented: ${requestKey}`);
-      return API.requestQueue[requestKey];
+  async function request(path, opts = {}, attempt = 0) {
+    const method = (opts.method || 'GET').toUpperCase();
+    const url    = `${CONFIG.API_BASE}${path}`;
+    const key    = `${method}:${path}`;
+
+    // Dedup identical concurrent GET requests
+    if (method === 'GET' && inflight.has(key)) {
+      return inflight.get(key);
     }
 
-    const fetchPromise = (async () => {
+    const promise = (async () => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT);
+
       try {
-        const url = `${CONFIG.API_BASE}${path}`;
-        const fetchOptions = {
-          headers: {
-            'Content-Type': 'application/json',
-            ...options.headers,
-          },
-          method: options.method || 'GET',
-          ...options,
+        const fetchOpts = {
+          method,
+          signal  : controller.signal,
+          headers : { 'Content-Type': 'application/json', ...(opts.headers || {}) },
         };
+        if (opts.body !== undefined) fetchOpts.body = JSON.stringify(opts.body);
 
-        delete fetchOptions.headers;
+        const resp = await fetch(url, fetchOpts);
 
-        const response = await Promise.race([
-          fetch(url, fetchOptions),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timeout')), 15000)
-          ),
-        ]);
+        // Try to parse JSON; fall back to text
+        const ct   = resp.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await resp.json() : await resp.text();
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (!resp.ok) {
+          const msg = (typeof data === 'object' ? data.error || data.message : data) || `HTTP ${resp.status}`;
+          throw Object.assign(new Error(msg), { status: resp.status, data });
         }
 
-        const data = await response.json();
-        delete API.requestQueue[requestKey];
         return data;
-      } catch (error) {
-        if (retryCount < CONFIG.RETRY_ATTEMPTS) {
-          const delay = CONFIG.RETRY_DELAY * Math.pow(2, retryCount);
-          Logger.warn(`Retry attempt ${retryCount + 1}/${CONFIG.RETRY_ATTEMPTS} for ${path}`);
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          return API.makeRequest(path, options, retryCount + 1);
+      } catch (err) {
+        // Don't retry on 4xx or abort
+        if (err.name === 'AbortError')        throw new Error('Request timed out');
+        if (err.status >= 400 && err.status < 500) throw err;
+
+        if (attempt < CONFIG.RETRY_ATTEMPTS) {
+          const delay = CONFIG.RETRY_BASE_DELAY * Math.pow(2, attempt);
+          Log.warn(`Retry ${attempt + 1}/${CONFIG.RETRY_ATTEMPTS} for ${key} in ${delay}ms`);
+          await new Promise(r => setTimeout(r, delay));
+          return request(path, opts, attempt + 1);
         }
-        throw error;
+        throw err;
+      } finally {
+        clearTimeout(timer);
+        inflight.delete(key);
       }
     })();
 
-    API.requestQueue[requestKey] = fetchPromise;
-    
-    fetchPromise.finally(() => {
-      delete API.requestQueue[requestKey];
-    });
+    if (method === 'GET') inflight.set(key, promise);
+    return promise;
+  }
 
-    return fetchPromise;
-  },
+  return {
+    get   : (path)        => request(path, { method: 'GET' }),
+    post  : (path, body)  => request(path, { method: 'POST',   body }),
+    del   : (path)        => request(path, { method: 'DELETE' }),
+  };
+})();
 
-  get: (path) => API.makeRequest(path, { method: 'GET' }),
-  
-  post: (path, data) =>
-    API.makeRequest(path, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+/* =============================================================================
+   9.  CONSOLE MANAGER
+   ============================================================================= */
+const Console = (() => {
+  function addLine(text, type = 'info') {
+    const out = $('#consoleOutput');
+    if (!out) return;
 
-  put: (path, data) =>
-    API.makeRequest(path, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  delete: (path) => API.makeRequest(path, { method: 'DELETE' }),
-};
-
-// ============================================
-// CONSOLE MANAGEMENT
-// ============================================
-
-const ConsoleManager = {
-  lines: [],
-  maxLines: 1000,
-
-  addLine: (text, type = 'info') => {
-    const consoleOutput = DOM.el('#consoleOutput');
-    if (!consoleOutput) return;
-
-    if (ConsoleManager.lines.length === 0) {
-      const welcome = consoleOutput.querySelector('.console-welcome');
-      if (welcome) welcome.remove();
+    // Remove welcome placeholder on first real line
+    if (State.consoleLines.length === 0) {
+      const ph = out.querySelector('.console-welcome');
+      if (ph) ph.remove();
     }
 
-    const line = DOM.createEl('div', 'console-line');
-    line.classList.add(type);
-    DOM.setText(line, text);
+    const line = el('div', `console-line ${type}`);
+    line.textContent = text;
+    out.appendChild(line);
 
-    consoleOutput.appendChild(line);
-    ConsoleManager.lines.push(text);
-
-    if (ConsoleManager.lines.length > ConsoleManager.maxLines) {
-      const oldLine = consoleOutput.firstChild;
-      if (oldLine) oldLine.remove();
-      ConsoleManager.lines.shift();
+    State.consoleLines.push(text);
+    if (State.consoleLines.length > CONFIG.CONSOLE_MAX_LINES) {
+      out.firstChild?.remove();
+      State.consoleLines.shift();
     }
 
-    if (AppState.autoScroll) {
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    }
-  },
+    if (State.autoScroll) out.scrollTop = out.scrollHeight;
+  }
 
-  clear: () => {
-    const consoleOutput = DOM.el('#consoleOutput');
-    if (consoleOutput) {
-      DOM.setHTML(consoleOutput, '<div class="console-welcome"><div class="console-line">Console cleared</div></div>');
-      ConsoleManager.lines = [];
-    }
-  },
+  function clear() {
+    setHTML('#consoleOutput', '<div class="console-welcome"><div class="console-line">Console cleared.</div></div>');
+    State.consoleLines = [];
+  }
 
-  getContent: () => ConsoleManager.lines.join('\n'),
-};
+  function copy() {
+    return navigator.clipboard?.writeText(State.consoleLines.join('\n'));
+  }
 
-// ============================================
-// SOCKET.IO MANAGEMENT
-// ============================================
+  return { addLine, clear, copy };
+})();
 
-const SocketManager = {
-  reconnectAttempts: 0,
-  maxReconnectAttempts: 10,
-
-  init: () => {
-    if (!window.io) {
-      Toast.show('Socket.IO library not loaded', 'error', 'Connection Error');
-      Logger.error('Socket.IO not available');
+/* =============================================================================
+   10.  SOCKET.IO MANAGER
+   ============================================================================= */
+const Socket = (() => {
+  function init() {
+    if (typeof io === 'undefined') {
+      Log.error('Socket.IO client library not found');
+      Toast.error('WebSocket library failed to load. Console features unavailable.', 'Socket Error');
       return;
     }
 
-    try {
-      AppState.socket = io(CONFIG.SOCKET_BASE, {
-        path: '/socket.io/',
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: CONFIG.RETRY_ATTEMPTS,
-        transports: ['websocket', 'polling'],
-        timeout: CONFIG.SOCKET_TIMEOUT,
-      });
+    State.socket = io(CONFIG.SOCKET_BASE, {
+      path              : CONFIG.SOCKET_PATH,
+      transports        : ['websocket', 'polling'],
+      reconnection      : true,
+      reconnectionDelay : 1_000,
+      reconnectionDelayMax: 5_000,
+      reconnectionAttempts: 10,
+      timeout           : 10_000,
+    });
 
-      SocketManager.setupListeners();
-    } catch (error) {
-      Logger.error(`Socket init error: ${error.message}`);
-      Toast.show('Failed to initialize socket connection', 'error');
-    }
-  },
+    State.socket.on('connect', () => {
+      State.connected = true;
+      updateStatus();
+      Console.addLine('✓ WebSocket connected', 'success');
+      Log.info('Socket connected:', State.socket.id);
+      // Re-subscribe if we had a server selected before reconnect
+      if (State.selectedId) subscribe(State.selectedId);
+    });
 
-  setupListeners: () => {
-    if (!AppState.socket) return;
+    State.socket.on('disconnect', (reason) => {
+      State.connected = false;
+      updateStatus();
+      Console.addLine(`✕ WebSocket disconnected (${reason})`, 'error');
+      Log.warn('Socket disconnected:', reason);
+    });
 
-    AppState.socket.on('connect', () => {
-      AppState.isConnected = true;
-      SocketManager.updateConnectionStatus();
-      ConsoleManager.addLine('✓ Socket connected', 'success');
-      Toast.show('Connected to server', 'success', 'Connection');
-      SocketManager.reconnectAttempts = 0;
+    State.socket.on('connect_error', (err) => {
+      Log.error('Socket connect error:', err.message);
+    });
 
-      if (AppState.selectedServerId) {
-        SocketManager.subscribeToServer(AppState.selectedServerId);
+    // Console output pushed from backend
+    State.socket.on('console:line', ({ line, type } = {}) => {
+      if (line) Console.addLine(line, type || 'info');
+    });
+
+    // Legacy fallback event name
+    State.socket.on('console:output', (data) => {
+      if (typeof data === 'string') Console.addLine(data, 'info');
+      else if (data?.line)         Console.addLine(data.line, data.type || 'info');
+    });
+
+    State.socket.on('server:status', ({ serverId, status } = {}) => {
+      if (serverId) {
+        Console.addLine(`[status] ${serverId}: ${status}`, 'info');
+        Servers.refresh().catch(() => {});
       }
     });
 
-    AppState.socket.on('disconnect', () => {
-      AppState.isConnected = false;
-      SocketManager.updateConnectionStatus();
-      ConsoleManager.addLine('✕ Socket disconnected', 'error');
+    State.socket.on('error', (err) => {
+      Log.error('Socket error:', err);
     });
+  }
 
-    AppState.socket.on('connect_error', (error) => {
-      Logger.error(`Socket error: ${error}`);
-      ConsoleManager.addLine(`Socket error: ${error}`, 'error');
-    });
+  function subscribe(serverId) {
+    if (!State.socket?.connected) { Log.warn('Socket not connected, cannot subscribe'); return; }
+    State.socket.emit('console:subscribe', String(serverId));
+    Log.info('Subscribed to console:', serverId);
+  }
 
-    AppState.socket.on('console:line', (data) => {
-      if (data.line) {
-        ConsoleManager.addLine(data.line, data.type || 'info');
-      }
-    });
+  function sendCommand(command) {
+    if (!State.socket?.connected) { Toast.error('Not connected — use the REST fallback'); return; }
+    State.socket.emit('console:command', { serverId: State.selectedId, command });
+  }
 
-    AppState.socket.on('console:output', (data) => {
-      if (data && typeof data === 'string') {
-        ConsoleManager.addLine(data, 'info');
-      }
-    });
-
-    AppState.socket.on('server:status', (data) => {
-      if (data && AppState.selectedServerId === data.serverId) {
-        ConsoleManager.addLine(`Server status: ${data.status}`, 'info');
-        ServerManager.refreshList();
-      }
-    });
-
-    AppState.socket.on('error', (error) => {
-      Logger.error(`Socket error: ${error}`);
-      Toast.show(error, 'error', 'Socket Error');
-    });
-  },
-
-  subscribeToServer: (serverId) => {
-    if (!AppState.socket || !AppState.isConnected) {
-      Logger.warn('Cannot subscribe: socket not connected');
-      return;
-    }
-    AppState.socket.emit('console:subscribe', String(serverId));
-  },
-
-  sendCommand: (command) => {
-    if (!AppState.socket || !AppState.isConnected) {
-      Toast.show('Not connected to server', 'error');
-      return;
-    }
-    AppState.socket.emit('console:command', {
-      serverId: AppState.selectedServerId,
-      command,
-    });
-  },
-
-  updateConnectionStatus: () => {
-    const dot = DOM.el('#connectionDot');
-    const text = DOM.el('#connectionText');
+  function updateStatus() {
+    const dot  = $('#connectionDot');
+    const text = $('#connectionText');
     if (dot) {
-      DOM.toggleClass(dot, 'connected', AppState.isConnected);
-      DOM.toggleClass(dot, 'disconnected', !AppState.isConnected);
+      dot.className = 'status-dot ' + (State.connected ? 'connected' : 'disconnected');
     }
-    if (text) {
-      DOM.setText(text, AppState.isConnected ? 'Connected' : 'Disconnected');
-    }
-  },
-};
+    setText(text, State.connected ? 'Connected' : 'Disconnected');
+  }
 
-// ============================================
-// SERVER MANAGEMENT
-// ============================================
+  return { init, subscribe, sendCommand, updateStatus };
+})();
 
-const ServerManager = {
-  refreshList: async () => {
+/* =============================================================================
+   11.  SERVERS
+   ============================================================================= */
+const Servers = (() => {
+  // ── Normalise a Pterodactyl server object ──────────────────────────────────
+  function normalise(raw) {
+    const a   = raw.attributes || raw;
+    // Pterodactyl application API uses `identifier` (8-char) for client calls
+    // and `id` (numeric) for application calls.
+    const id  = a.identifier || String(a.id);
+    const numId = a.id;
+    return {
+      id,          // always 8-char identifier for client API
+      numId,       // numeric id for application API (delete)
+      name       : a.name || 'Unknown',
+      status     : a.is_suspended ? 'suspended' : (a.status || 'offline'),
+      ram        : a.limits?.memory ?? 1024,
+      disk       : a.limits?.disk ?? 6144,
+      cpu        : a.limits?.cpu ?? 100,
+      players    : a.relationships?.allocations?.data?.length ?? 0,
+      uptime     : a.uptime ?? 0,
+      suspended  : !!a.is_suspended,
+    };
+  }
+
+  // ── Fetch + render ─────────────────────────────────────────────────────────
+  async function refresh() {
+    addClass('#syncDot', 'syncing');
     try {
-      // Show syncing indicator
-      const syncDot = DOM.el('#syncDot');
-      if (syncDot) DOM.addClass(syncDot, 'syncing');
+      const raw = await API.get('/servers');
+      State.servers = (Array.isArray(raw) ? raw : []).map(normalise);
 
-      const servers = await API.get('/servers');
-
-      if (!Array.isArray(servers)) {
-        throw new Error('Invalid servers response');
-      }
-
-      AppState.servers = servers;
-      ServerManager.renderList(servers, 'serversContainer');
-      ServerManager.renderList(servers, 'serversContainer2');
-
-      // Update count badges
-      const countText = `${servers.length} server${servers.length !== 1 ? 's' : ''}`;
-      const badge1 = DOM.el('#serversCountBadge');
-      const badge2 = DOM.el('#serversCountBadge2');
-      if (badge1) badge1.textContent = countText;
-      if (badge2) badge2.textContent = countText;
-
-      // Update active servers stat
-      const activeCount = servers.filter(s => {
-        const attrs = s.attributes || s;
-        return attrs.status === 'running' || attrs.status === 'online';
-      }).length;
-
-      DOM.setText(DOM.el('#activeServersCount'), String(activeCount));
-
-      const bar = DOM.el('#activeServersBar');
-      if (bar) bar.style.width = `${Math.min((activeCount / Math.max(servers.length, 1)) * 100, 100)}%`;
-
-      if (syncDot) DOM.removeClass(syncDot, 'syncing');
-      return servers;
-    } catch (error) {
-      Logger.error(`Failed to load servers: ${error.message}`);
-      ConsoleManager.addLine(`✕ Failed to load servers: ${error.message}`, 'error');
-      const syncDot = DOM.el('#syncDot');
-      if (syncDot) DOM.removeClass(syncDot, 'syncing');
+      renderList(State.servers, '#serversContainer');
+      renderList(State.servers, '#serversContainer2');
+      syncBadges();
+      syncStats();
+    } catch (err) {
+      Log.error('Failed to load servers:', err.message);
+      Console.addLine(`✕ Could not load servers: ${err.message}`, 'error');
+    } finally {
+      removeClass('#syncDot', 'syncing');
     }
-  },
+  }
 
-  renderList: (servers, containerId) => {
-    const container = DOM.el('#' + containerId);
+  // ── Render list into a container ──────────────────────────────────────────
+  function renderList(servers, containerSel) {
+    const container = $(containerSel);
     if (!container) return;
 
-    if (servers.length === 0) {
-      DOM.setHTML(container, `
+    if (!servers.length) {
+      setHTML(container, `
         <div class="empty-state">
           <div class="empty-icon">🎮</div>
           <h3>No servers yet</h3>
           <p>Create your first Minecraft server using <strong>Quick Setup</strong>!</p>
-        </div>
-      `);
+        </div>`);
       return;
     }
 
-    DOM.setHTML(container, '');
+    container.innerHTML = '';
+    servers.forEach(s => container.appendChild(buildCard(s)));
+  }
 
-    servers.forEach((server) => {
-      const attrs = server.attributes || server;
-      const id = attrs.identifier || attrs.id;
-      const name = attrs.name || 'Unknown';
-      const status = attrs.is_suspended ? 'offline' : (attrs.status || 'offline');
-      const isSelected = id === AppState.selectedServerId;
-      const isOnline = status === 'running' || status === 'online';
-      const ram = attrs.limits?.memory || 1024;
-      const players = attrs.players || 0;
+  // ── Build a single server card ─────────────────────────────────────────────
+  function buildCard(s) {
+    const isOnline   = s.status === 'running' || s.status === 'online';
+    const isSelected = s.id === State.selectedId;
+    const card       = el('div', `server-card ${isSelected ? 'selected' : ''}`);
 
-      const card = DOM.createEl('div', `server-card ${isSelected ? 'selected' : ''}`);
-
-      const statusClass = isOnline ? 'online' : 'offline';
-      const statusText = isOnline ? 'ONLINE' : 'OFFLINE';
-
-      card.innerHTML = `
-        <div class="server-card-header">
-          <div>
-            <div class="server-card-title">${ServerManager.escapeHtml(name)}</div>
-            <div class="server-card-id" style="display:flex;align-items:center;gap:0.5rem;">
-              <span>${ServerManager.escapeHtml(String(id).substring(0, 16))}</span>
-              ${isOnline ? `<span class="player-count-badge">👥 ${players}</span>` : ''}
-            </div>
-          </div>
-          <div class="server-status ${statusClass}">
-            <span class="status-indicator"></span>
-            ${statusText}
+    card.innerHTML = `
+      <div class="server-card-header">
+        <div>
+          <div class="server-card-title">${escHtml(s.name)}</div>
+          <div class="server-card-id">
+            <span style="font-family:var(--font-mono)">${escHtml(s.id)}</span>
+            ${isOnline ? `<span class="player-count-badge">👥 ${s.players}</span>` : ''}
           </div>
         </div>
-
-        <div class="server-stats">
-          <div class="server-stat">
-            <div class="server-stat-label">RAM</div>
-            <div class="server-stat-value">${ram}MB</div>
-          </div>
-          <div class="server-stat">
-            <div class="server-stat-label">Uptime</div>
-            <div class="server-stat-value">${ServerManager.formatUptime(attrs.uptime || 0)}</div>
-          </div>
+        <div class="server-status ${isOnline ? 'online' : s.suspended ? 'suspended' : 'offline'}">
+          <span class="status-indicator"></span>
+          ${isOnline ? 'ONLINE' : s.suspended ? 'SUSPENDED' : 'OFFLINE'}
         </div>
+      </div>
 
-        <div class="server-actions">
-          <button class="server-action-btn select-btn" data-id="${id}" data-name="${ServerManager.escapeHtml(name)}">📟 Console</button>
-          <button class="server-action-btn power-btn ${statusClass === 'online' ? 'danger' : 'success'}" data-action="${statusClass === 'online' ? 'stop' : 'start'}" data-id="${id}">
-            ${statusClass === 'online' ? '⏹ Stop' : '▶ Start'}
-          </button>
+      <div class="server-stats">
+        <div class="server-stat">
+          <div class="server-stat-label">RAM</div>
+          <div class="server-stat-value">${s.ram} MB</div>
         </div>
-      `;
+        <div class="server-stat">
+          <div class="server-stat-label">Uptime</div>
+          <div class="server-stat-value">${fmtUptime(s.uptime)}</div>
+        </div>
+      </div>
 
-      container.appendChild(card);
+      <div class="server-actions">
+        <button class="server-action-btn select-btn" data-id="${escHtml(s.id)}" data-name="${escHtml(s.name)}">
+          📟 Console
+        </button>
+        <button class="server-action-btn power-btn ${isOnline ? 'danger' : 'success'}"
+                data-action="${isOnline ? 'stop' : 'start'}" data-id="${escHtml(s.id)}">
+          ${isOnline ? '⏹ Stop' : '▶ Start'}
+        </button>
+      </div>`;
 
-      card.querySelector('.select-btn').onclick = () => {
-        ServerManager.selectServer(id, name);
-        PageManager.navigate('console');
-      };
+    card.querySelector('.select-btn').onclick = () => {
+      select(s.id, s.name);
+      Pages.navigate('console');
+    };
+    card.querySelector('.power-btn').onclick = (e) => {
+      power(s.id, e.currentTarget.dataset.action);
+    };
 
-      const powerBtn = card.querySelector('.power-btn');
-      if (powerBtn) {
-        powerBtn.onclick = (e) => {
-          const action = e.currentTarget.dataset.action;
-          ServerManager.powerServer(id, action);
-        };
-      }
-    });
-  },
+    return card;
+  }
 
-  selectServer: (serverId, serverName) => {
-    AppState.selectedServerId = serverId;
-    AppState.selectedServerName = serverName;
-    ConsoleManager.addLine(`→ Selected: ${serverName}`, 'success');
-    SocketManager.subscribeToServer(serverId);
-    ServerManager.refreshList();
+  // ── Select a server as the active console target ───────────────────────────
+  function select(id, name) {
+    State.selectedId   = id;
+    State.selectedName = name;
+    Console.addLine(`→ Selected server: ${name} (${id})`, 'success');
+    Socket.subscribe(id);
+    setText('#selectedServerLabel', `Server: ${name}`);
+    Toast.success(`Selected: ${name}`);
+    renderList(State.servers, '#serversContainer');
+    renderList(State.servers, '#serversContainer2');
+  }
 
-    const label = DOM.el('#selectedServerLabel');
-    if (label) label.textContent = `Server: ${serverName}`;
-
-    Toast.show(`Selected: ${serverName}`, 'success');
-  },
-
-  createServer: async () => {
-    const nameInput = DOM.el('#serverName');
-    const ramInput = DOM.el('#serverRam');
-
-    const name = nameInput?.value?.trim();
-    const ram = parseInt(ramInput?.value || 1024);
-    const preset = AppState.selectedPreset;
-
-    if (!name || name.length < 1) {
-      Toast.show('Server name is required', 'error', 'Validation Error');
-      return;
-    }
-
-    if (ram < 256 || ram > 8192) {
-      Toast.show('RAM must be between 256 and 8192 MB', 'error', 'Validation Error');
-      return;
-    }
-
-    Loading.show(`🚀 Launching ${name}…`);
-    ConsoleManager.addLine(`Creating server: ${name} (${ram}MB, preset: ${preset})…`, 'info');
-
-    try {
-      const result = await API.post('/create-server', {
-        name,
-        ramMb: ram,
-        preset,
-      });
-
-      const newServerId = result.attributes?.identifier || result.identifier || result.id;
-      AppState.selectedServerId = newServerId;
-      AppState.selectedServerName = name;
-
-      ConsoleManager.addLine(`✓ Server created: ${name}`, 'success');
-      Toast.show(`🎉 Server "${name}" is launching!`, 'success', 'Server Created');
-
-      nameInput.value = '';
-      ramInput.value = '1024';
-
-      setTimeout(() => {
-        ServerManager.refreshList();
-        SocketManager.subscribeToServer(newServerId);
-      }, 500);
-
-      PageManager.navigate('servers');
-    } catch (error) {
-      Logger.error(`Create server error: ${error.message}`);
-      ConsoleManager.addLine(`✕ Failed to create: ${error.message}`, 'error');
-      Toast.show(error.message, 'error', 'Creation Failed');
-    } finally {
-      Loading.hide();
-    }
-  },
-
-  powerServer: async (serverId, action) => {
+  // ── Power action (start / stop) ────────────────────────────────────────────
+  async function power(id, action) {
+    if (!id || !action) return;
+    const endpoint = action === 'start' ? `/start-server/${id}` : `/stop-server/${id}`;
     Loading.show(`${action === 'start' ? 'Starting' : 'Stopping'} server…`);
-    ConsoleManager.addLine(`Sending ${action} signal to ${serverId}…`, 'info');
-
+    Console.addLine(`Sending ${action} signal to ${id}…`, 'info');
     try {
-      const endpoint = action === 'start' ? '/start-server/' : '/stop-server/';
-      await API.post(endpoint + serverId, {});
-
-      ConsoleManager.addLine(`✓ ${action.toUpperCase()} signal sent`, 'success');
-      Toast.show(`Server ${action} signal sent`, 'success');
-
-      setTimeout(() => {
-        ServerManager.refreshList();
-      }, 1000);
-    } catch (error) {
-      Logger.error(`Power action error: ${error.message}`);
-      ConsoleManager.addLine(`✕ Failed: ${error.message}`, 'error');
-      Toast.show(error.message, 'error', 'Action Failed');
+      await API.post(endpoint, {});
+      Console.addLine(`✓ ${action.toUpperCase()} signal sent`, 'success');
+      Toast.success(`Server ${action} signal sent`);
+      setTimeout(() => refresh().catch(() => {}), 1_200);
+    } catch (err) {
+      Console.addLine(`✕ ${action} failed: ${err.message}`, 'error');
+      Toast.error(err.message, 'Action Failed');
     } finally {
       Loading.hide();
     }
-  },
+  }
 
-  sendCommand: async () => {
-    const input = DOM.el('#consoleInput');
+  // ── Create a new server ────────────────────────────────────────────────────
+  async function create() {
+    const nameEl = $('#serverName');
+    const ramEl  = $('#serverRam');
+    const name   = nameEl?.value?.trim();
+    const ram    = parseInt(ramEl?.value || '1024', 10);
+
+    if (!name) {
+      Toast.error('Server name is required.', 'Validation');
+      nameEl?.focus();
+      return;
+    }
+    if (name.length > 32) {
+      Toast.error('Name must be 32 characters or fewer.', 'Validation');
+      return;
+    }
+    if (isNaN(ram) || ram < 256 || ram > 12288) {
+      Toast.error('RAM must be between 256 and 12 288 MB.', 'Validation');
+      ramEl?.focus();
+      return;
+    }
+
+    Loading.show(`🚀 Launching "${name}"…`);
+    Console.addLine(`Creating server: ${name} (${ram} MB, preset: ${State.preset})…`, 'info');
+
+    try {
+      const result = await API.post('/create-server', { name, ramMb: ram, preset: State.preset });
+      const newId  = result.attributes?.identifier || result.identifier;
+      const newName = result.attributes?.name || name;
+
+      Console.addLine(`✓ Server created: ${newName}`, 'success');
+      Toast.success(`🎉 "${newName}" is launching!`, 'Server Created');
+
+      if (nameEl) nameEl.value = '';
+      if (ramEl)  ramEl.value  = '1024';
+
+      if (newId) {
+        State.selectedId   = newId;
+        State.selectedName = newName;
+        Socket.subscribe(newId);
+      }
+
+      await refresh();
+      Pages.navigate('servers');
+    } catch (err) {
+      Console.addLine(`✕ Creation failed: ${err.message}`, 'error');
+      Toast.error(err.message, 'Creation Failed');
+    } finally {
+      Loading.hide();
+    }
+  }
+
+  // ── Send console command via REST ─────────────────────────────────────────
+  async function sendCommand() {
+    const input   = $('#consoleInput');
     const command = input?.value?.trim();
 
-    if (!command) {
-      Toast.show('Enter a command', 'warning', 'Empty Command');
-      return;
-    }
+    if (!command) { Toast.warn('Type a command first.', 'Empty Command'); return; }
+    if (!State.selectedId) { Toast.error('Select a server first.', 'No Server'); return; }
 
-    if (!AppState.selectedServerId) {
-      Toast.show('Select a server first', 'error', 'No Server Selected');
-      return;
-    }
+    Console.addLine(`> ${command}`, 'command');
+    State.cmdHistory.push(command);
+    State.cmdHistoryIdx = -1;
+    if (input) input.value = '';
 
     try {
-      ConsoleManager.addLine(`> ${command}`, 'info');
-      AppState.commandHistory.push(command);
-      AppState.commandHistoryIndex = -1;
-
-      await API.post(`/console/${AppState.selectedServerId}`, { command });
-
-      input.value = '';
-    } catch (error) {
-      Logger.error(`Send command error: ${error.message}`);
-      ConsoleManager.addLine(`✕ Command failed: ${error.message}`, 'error');
-      Toast.show(error.message, 'error', 'Command Failed');
+      await API.post(`/console/${State.selectedId}`, { command });
+    } catch (err) {
+      Console.addLine(`✕ Command failed: ${err.message}`, 'error');
+      Toast.error(err.message, 'Command Failed');
     }
-  },
+  }
 
-  escapeHtml: (text) => {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  },
+  // ── Sync helpers ──────────────────────────────────────────────────────────
+  function syncBadges() {
+    const txt = `${State.servers.length} server${State.servers.length !== 1 ? 's' : ''}`;
+    setText('#serversCountBadge',  txt);
+    setText('#serversCountBadge2', txt);
+  }
 
-  formatUptime: (seconds) => {
-    if (seconds < 60) return `${Math.floor(seconds)}s`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
-    return `${Math.floor(seconds / 86400)}d`;
-  },
-};
+  function syncStats() {
+    const online = State.servers.filter(s => s.status === 'running' || s.status === 'online').length;
+    setText('#activeServersCount', String(online));
+    const pct = State.servers.length ? Math.min((online / State.servers.length) * 100, 100) : 0;
+    const bar = $('#activeServersBar');
+    if (bar) bar.style.width = `${pct}%`;
 
-// ============================================
-// ADMIN PANEL MANAGEMENT
-// ============================================
+    // Update admin table if visible
+    Admin.renderServersTable(State.servers);
+  }
 
-const AdminManager = {
-  startMetricsSimulation: () => {
-    // Simulate live metrics (backend doesn't expose them; UI is informative)
-    AdminManager.updateMetrics();
-    setInterval(AdminManager.updateMetrics, 8000);
-  },
+  // ── Formatters ────────────────────────────────────────────────────────────
+  function fmtUptime(secs) {
+    if (!secs || secs < 1) return '—';
+    if (secs < 60)         return `${secs}s`;
+    if (secs < 3_600)      return `${Math.floor(secs / 60)}m`;
+    if (secs < 86_400)     return `${Math.floor(secs / 3_600)}h`;
+    return `${Math.floor(secs / 86_400)}d`;
+  }
 
-  updateMetrics: () => {
-    const cpu = Math.round(20 + Math.random() * 40);
-    const mem = Math.round(40 + Math.random() * 35);
-    const disk = Math.round(30 + Math.random() * 20);
-    const conn = Math.round(AppState.servers.length * (0.5 + Math.random() * 0.5));
-    const totalServers = AppState.servers.length;
+  return { refresh, select, power, create, sendCommand };
+})();
 
-    const uptime = '99.8%';
+/* =============================================================================
+   12.  ADMIN PANEL
+   ============================================================================= */
+const Admin = (() => {
+  let metricsTimer = null;
 
-    // CPU
-    const cpuEl = DOM.el('#metricCpu');
-    const cpuBar = DOM.el('#metricCpuBar');
-    if (cpuEl) cpuEl.textContent = `${cpu}%`;
-    if (cpuBar) cpuBar.style.width = `${cpu}%`;
-    DOM.setText(DOM.el('#metricCpuSub'), cpu < 50 ? 'Healthy' : 'Moderate load');
+  function start() {
+    renderMetrics();
+    clearInterval(metricsTimer);
+    metricsTimer = setInterval(renderMetrics, 8_000);
+    renderActivityChart();
+    renderServersTable(State.servers);
+    renderUsersTable();
+  }
 
-    // Memory
-    const memEl = DOM.el('#metricMem');
-    const memBar = DOM.el('#metricMemBar');
-    if (memEl) memEl.textContent = `${mem}%`;
-    if (memBar) memBar.style.width = `${mem}%`;
-    DOM.setText(DOM.el('#metricMemSub'), `~${Math.round(mem * 0.16)} GB used`);
+  function renderMetrics() {
+    const cpu    = rnd(20, 60);
+    const mem    = rnd(40, 75);
+    const disk   = rnd(30, 50);
+    const conn   = State.servers.length * rnd(1, 3);
+    const total  = State.servers.length;
 
-    // Disk
-    const diskEl = DOM.el('#metricDisk');
-    const diskBar = DOM.el('#metricDiskBar');
-    if (diskEl) diskEl.textContent = `${disk}%`;
-    if (diskBar) diskBar.style.width = `${disk}%`;
-    DOM.setText(DOM.el('#metricDiskSub'), `${disk}% of 100 GB`);
+    setMetric('Cpu',     `${cpu}%`,   `${cpu}%`,  cpu  < 50 ? 'Healthy' : 'Moderate load');
+    setMetric('Mem',     `${mem}%`,   `${mem}%`,  `~${Math.round(mem * 0.16)} GB used`);
+    setMetric('Disk',    `${disk}%`,  `${disk}%`, `${disk}% of 100 GB`);
+    setMetric('Conn',    String(conn), `${Math.min(conn * 5, 100)}%`, 'Users online');
+    setMetric('Servers', String(total), `${Math.min(total * 10, 100)}%`, 'Across all users');
+    setText('#metricUptime', '99.8%');
 
-    // Connections
-    const connEl = DOM.el('#metricConn');
-    const connBar = DOM.el('#metricConnBar');
-    if (connEl) connEl.textContent = String(conn);
-    if (connBar) connBar.style.width = `${Math.min(conn * 5, 100)}%`;
+    setText('#panelStatusValue', '✅ Online');
+    const pb = $('#panelBar');
+    if (pb) pb.style.width = '100%';
+  }
 
-    // Servers
-    const sEl = DOM.el('#metricServers');
-    const sBar = DOM.el('#metricServersBar');
-    if (sEl) sEl.textContent = String(totalServers);
-    if (sBar) sBar.style.width = `${Math.min(totalServers * 10, 100)}%`;
+  function setMetric(key, valueText, barWidth, subText) {
+    setText(`#metric${key}`,    valueText);
+    setText(`#metric${key}Sub`, subText);
+    const bar = $(`#metric${key}Bar`);
+    if (bar) bar.style.width = barWidth;
+  }
 
-    // Uptime
-    DOM.setText(DOM.el('#metricUptime'), uptime);
-
-    // Panel status
-    DOM.setText(DOM.el('#panelStatusValue'), '✅ Online');
-    DOM.setText(DOM.el('#panelBar'), '');
-    const panelBar = DOM.el('#panelBar');
-    if (panelBar) panelBar.style.width = '100%';
-  },
-
-  renderAdminServersTable: (servers) => {
-    const tbody = DOM.el('#adminServersTableBody');
+  function renderServersTable(servers) {
+    const tbody = $('#adminServersTableBody');
     if (!tbody) return;
-
-    if (!servers || servers.length === 0) {
-      DOM.setHTML(tbody, `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">No servers found</td></tr>`);
+    if (!servers?.length) {
+      setHTML(tbody, `<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">No servers found</td></tr>`);
       return;
     }
-
-    DOM.setHTML(tbody, servers.map(server => {
-      const attrs = server.attributes || server;
-      const id = attrs.identifier || attrs.id;
-      const name = ServerManager.escapeHtml(attrs.name || 'Unknown');
-      const status = attrs.is_suspended ? 'offline' : (attrs.status || 'offline');
-      const isOnline = status === 'running' || status === 'online';
-      const ram = attrs.limits?.memory || 1024;
-      const players = attrs.players || 0;
-
+    tbody.innerHTML = servers.map(s => {
+      const isOnline = s.status === 'running' || s.status === 'online';
       return `
         <tr>
-          <td><strong>${name}</strong><br><small style="color:var(--color-text-muted);font-family:monospace;">${String(id).substring(0,12)}</small></td>
-          <td style="color:var(--color-text-muted);">—</td>
-          <td><span class="status-pill ${isOnline ? 'online' : 'offline'}">${isOnline ? 'Online' : 'Offline'}</span></td>
-          <td>${ram}MB</td>
-          <td>${players}</td>
-          <td style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-            <button class="table-action-btn" onclick="ServerManager.powerServer('${id}','${isOnline ? 'stop' : 'start'}')">${isOnline ? '⏹ Stop' : '▶ Start'}</button>
-            <button class="table-action-btn" onclick="ServerManager.selectServer('${id}','${name}');PageManager.navigate('console');">📟 Console</button>
+          <td>
+            <strong>${escHtml(s.name)}</strong><br>
+            <small style="font-family:var(--font-mono);color:var(--color-text-muted)">${escHtml(s.id)}</small>
           </td>
-        </tr>
-      `;
-    }).join(''));
-  },
+          <td style="color:var(--color-text-muted)">—</td>
+          <td><span class="status-pill ${isOnline ? 'online' : 'offline'}">${isOnline ? 'Online' : 'Offline'}</span></td>
+          <td>${s.ram} MB</td>
+          <td>${s.players}</td>
+          <td style="display:flex;gap:.4rem;flex-wrap:wrap">
+            <button class="table-action-btn" onclick="Servers.power('${escHtml(s.id)}','${isOnline ? 'stop' : 'start'}')">
+              ${isOnline ? '⏹ Stop' : '▶ Start'}
+            </button>
+            <button class="table-action-btn" onclick="Servers.select('${escHtml(s.id)}','${escHtml(s.name)}');Pages.navigate('console')">
+              📟 Console
+            </button>
+          </td>
+        </tr>`;
+    }).join('');
+  }
 
-  renderUsersTable: async () => {
-    const tbody = DOM.el('#adminUsersTableBody');
+  async function renderUsersTable() {
+    const tbody = $('#adminUsersTableBody');
     if (!tbody) return;
 
-    // Try to fetch users from API; show demo data if unavailable
     try {
       const users = await API.get('/users');
-      if (Array.isArray(users) && users.length > 0) {
-        DOM.setHTML(tbody, users.map(u => {
-          const attrs = u.attributes || u;
+      if (Array.isArray(users) && users.length) {
+        tbody.innerHTML = users.map(u => {
+          const a = u.attributes || u;
           return `
             <tr>
-              <td>${ServerManager.escapeHtml(attrs.username || '—')}</td>
-              <td>${ServerManager.escapeHtml(attrs.email || '—')}</td>
-              <td>${attrs.serverCount || '—'}</td>
-              <td><span class="status-pill ${attrs.is_suspended ? 'offline' : 'online'}">${attrs.is_suspended ? 'Suspended' : 'Active'}</span></td>
-              <td>${attrs.created_at ? new Date(attrs.created_at).toLocaleDateString() : '—'}</td>
+              <td>${escHtml(a.username || '—')}</td>
+              <td>${escHtml(a.email    || '—')}</td>
+              <td>${a.serverCount ?? '—'}</td>
+              <td><span class="status-pill ${a.is_suspended ? 'offline' : 'online'}">${a.is_suspended ? 'Suspended' : 'Active'}</span></td>
+              <td>${a.created_at ? new Date(a.created_at).toLocaleDateString() : '—'}</td>
               <td><button class="table-action-btn danger">Suspend</button></td>
-            </tr>
-          `;
-        }).join(''));
+            </tr>`;
+        }).join('');
         return;
       }
-    } catch (_) {
-      // API not available; show placeholder
-    }
+    } catch (_) { /* no user endpoint exposed — show info message */ }
 
-    DOM.setHTML(tbody, `
-      <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">
-        User data requires admin API access. Connect your Pterodactyl admin key to view users.
-      </td></tr>
-    `);
-  },
+    setHTML(tbody, `
+      <tr>
+        <td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
+          User management requires an admin API endpoint. Connect your Pterodactyl admin credentials to enable this feature.
+        </td>
+      </tr>`);
+  }
 
-  renderActivityChart: () => {
-    const chart = DOM.el('#activityChart');
+  function renderActivityChart() {
+    const chart = $('#activityChart');
     if (!chart) return;
-
     const bars = Array.from({ length: 24 }, (_, i) => {
-      const h = Math.round(10 + Math.random() * 90);
-      const isNow = i === 23;
-      return `<div style="flex:1;height:${h}%;background:${isNow ? 'var(--color-primary)' : 'rgba(80,200,120,0.3)'};border-radius:2px 2px 0 0;transition:height 0.5s;" title="Hour ${i}:00 — ${h}% activity"></div>`;
+      const h = rnd(10, 95);
+      return `<div style="flex:1;height:${h}%;background:${i === 23 ? 'var(--color-primary)' : 'rgba(80,200,120,.28)'};border-radius:2px 2px 0 0;transition:height .5s" title="Hour ${i}:00 — ${h}% activity"></div>`;
     });
+    chart.innerHTML = bars.join('');
+  }
 
-    DOM.setHTML(chart, bars.join(''));
-  },
-};
+  function rnd(min, max) { return Math.round(min + Math.random() * (max - min)); }
 
-// ============================================
-// THEME MANAGER
-// ============================================
+  return { start, renderServersTable, renderUsersTable };
+})();
 
-const ThemeManager = {
-  apply: (theme) => {
-    AppState.theme = theme;
-    localStorage.setItem('theme', theme);
-    if (theme === 'light') {
-      document.body.classList.add('light-mode');
-      DOM.setText(DOM.el('#themeToggleBtn'), '☀️');
-    } else {
-      document.body.classList.remove('light-mode');
-      DOM.setText(DOM.el('#themeToggleBtn'), '🌙');
-    }
-  },
+/* =============================================================================
+   13.  PAGES
+   ============================================================================= */
+const Pages = (() => {
+  const META = {
+    dashboard : { title: 'Dashboard',   subtitle: 'Overview of your Minecraft servers'       },
+    servers   : { title: 'My Servers',  subtitle: 'Manage all your server instances'         },
+    create    : { title: 'Quick Setup', subtitle: 'Launch a Minecraft server in seconds'     },
+    console   : { title: 'Live Console',subtitle: 'Interact with your server in real time'   },
+    admin     : { title: 'Admin Panel', subtitle: 'System metrics and control centre'        },
+  };
 
-  toggle: () => {
-    ThemeManager.apply(AppState.theme === 'dark' ? 'light' : 'dark');
-  },
-};
+  function navigate(page) {
+    State.page = page;
 
-// ============================================
-// PAGE MANAGER
-// ============================================
+    $$('.page-section').forEach(p => removeClass(p, 'active'));
+    addClass(`#page-${page}`, 'active');
 
-const PageManager = {
-  pages: {
-    dashboard: { title: 'Dashboard', subtitle: 'Overview of your Minecraft servers' },
-    servers: { title: 'My Servers', subtitle: 'Manage all your server instances' },
-    create: { title: 'Quick Setup', subtitle: 'Launch a Minecraft server in seconds' },
-    console: { title: 'Live Console', subtitle: 'Interact with your server in real time' },
-    admin: { title: 'Admin Panel', subtitle: 'System metrics and control center' },
-  },
+    $$('.nav-item').forEach(n => toggleClass(n, 'active', n.dataset.nav === page));
 
-  navigate: (page) => {
-    AppState.currentPage = page;
+    const m = META[page] || { title: page, subtitle: '' };
+    setText('#pageTitle',    m.title);
+    setText('#pageSubtitle', m.subtitle);
 
-    // Hide all pages
-    DOM.els('.page-section').forEach(p => DOM.removeClass(p, 'active'));
+    if (page === 'admin') Admin.start();
+  }
 
-    // Show target page
-    const target = DOM.el(`#page-${page}`);
-    if (target) DOM.addClass(target, 'active');
+  return { navigate };
+})();
 
-    // Update nav active state
-    DOM.els('.nav-item').forEach(item => {
-      DOM.toggleClass(item, 'active', item.dataset.nav === page);
-    });
+// Expose navigate globally so inline onclick handlers in admin table can use it
+window.Pages  = Pages;
+window.Servers = Servers;
 
-    // Update header
-    const info = PageManager.pages[page] || { title: page, subtitle: '' };
-    DOM.setText(DOM.el('#pageTitle'), info.title);
-    DOM.setText(DOM.el('#pageSubtitle'), info.subtitle);
+/* =============================================================================
+   14.  PRESET MANAGER
+   ============================================================================= */
+const Presets = (() => {
+  function select(key) {
+    State.preset = key;
+    $$('.preset-card').forEach(c => toggleClass(c, 'active', c.dataset.preset === key));
 
-    // Page-specific actions
-    if (page === 'admin') {
-      AdminManager.startMetricsSimulation();
-      AdminManager.renderAdminServersTable(AppState.servers);
-      AdminManager.renderUsersTable();
-      AdminManager.renderActivityChart();
-    }
-  },
-};
+    const p = PRESETS[key];
+    if (!p) return;
 
-// ============================================
-// PRESET MANAGER
-// ============================================
+    setHTML('#presetInfoBox', `
+      <strong style="color:var(--color-primary)">${p.icon} ${p.label}</strong>
+      <p style="margin-top:.5rem;color:var(--color-text-muted);font-size:.9rem">${escHtml(p.desc)}</p>`);
 
-const PresetManager = {
-  select: (preset) => {
-    AppState.selectedPreset = preset;
+    const ramEl = $('#serverRam');
+    if (ramEl) ramEl.value = p.ram;
 
-    DOM.els('.preset-card').forEach(c => DOM.removeClass(c, 'active'));
-    const active = DOM.el(`[data-preset="${preset}"]`);
-    if (active) DOM.addClass(active, 'active');
-
-    const info = SERVER_PRESETS[preset];
-    if (info) {
-      const box = DOM.el('#presetInfoBox');
-      if (box) {
-        DOM.setHTML(box, `
-          <strong style="color:var(--color-primary);">${info.icon} ${info.name}</strong>
-          <p style="margin-top:0.5rem;color:var(--color-text-muted);font-size:0.9rem;">${info.description}</p>
-        `);
-      }
-
-      const ramInput = DOM.el('#serverRam');
-      if (ramInput) ramInput.value = info.ram;
-
-      const versionSelect = DOM.el('#serverVersion');
-      if (versionSelect) {
-        for (const opt of versionSelect.options) {
-          if (opt.value === info.version) {
-            versionSelect.value = opt.value;
-            break;
-          }
-        }
+    const verEl = $('#serverVersion');
+    if (verEl) {
+      for (const opt of verEl.options) {
+        if (opt.value === p.version) { verEl.value = p.version; break; }
       }
     }
-  },
-};
+  }
 
-// ============================================
-// LATENCY MONITORING
-// ============================================
+  return { select };
+})();
 
-const LatencyMonitor = {
-  start: () => {
+/* =============================================================================
+   15.  THEME
+   ============================================================================= */
+const Theme = (() => {
+  function apply(t) {
+    State.theme = t;
+    localStorage.setItem('tfh_theme', t);
+    toggleClass(document.body, 'light-mode', t === 'light');
+    setText('#themeToggleBtn', t === 'light' ? '☀️' : '🌙');
+  }
+
+  function toggle() { apply(State.theme === 'dark' ? 'light' : 'dark'); }
+
+  return { apply, toggle };
+})();
+
+/* =============================================================================
+   16.  LATENCY MONITOR
+   ============================================================================= */
+const Latency = (() => {
+  function start() {
     setInterval(async () => {
       try {
-        const start = performance.now();
-        await API.get('/servers');
-        const latency = Math.round(performance.now() - start);
-        AppState.lastLatency = latency;
+        const t0    = performance.now();
+        await API.get('/health');
+        const ms    = Math.round(performance.now() - t0);
+        const pct   = Math.max(0, 100 - Math.min(ms / 5, 100));
 
-        const latEl = DOM.el('#latencyValue');
-        const pingEl = DOM.el('#consolePing');
-        const latBar = DOM.el('#latencyBar');
+        setText('#latencyValue', `${ms}ms`);
+        setText('#consolePing',  `${ms}ms`);
+        const bar = $('#latencyBar');
+        if (bar) bar.style.width = `${pct}%`;
+      } catch (_) { /* silent — might be first load */ }
+    }, 10_000);
+  }
 
-        if (latEl) latEl.textContent = `${latency}ms`;
-        if (pingEl) pingEl.textContent = `${latency}ms`;
+  return { start };
+})();
 
-        const pct = Math.max(0, 100 - Math.min(latency / 5, 100));
-        if (latBar) latBar.style.width = `${pct}%`;
-      } catch (error) {
-        Logger.debug(`Latency check failed: ${error.message}`);
-      }
-    }, CONFIG.LATENCY_CHECK_INTERVAL);
-  },
-};
+/* =============================================================================
+   17.  AUTO-SYNC
+   ============================================================================= */
+const AutoSync = (() => {
+  function start() {
+    State.syncTimer = setInterval(() => Servers.refresh().catch(() => {}), CONFIG.AUTO_SYNC_MS);
+    setText('#syncText', 'Auto-sync: ON');
+  }
+  function stop() {
+    clearInterval(State.syncTimer);
+    State.syncTimer = null;
+    setText('#syncText', 'Auto-sync: OFF');
+  }
 
-// ============================================
-// AUTO-SYNC
-// ============================================
+  return { start, stop };
+})();
 
-const AutoSync = {
-  start: () => {
-    AppState.syncInterval = setInterval(async () => {
-      await ServerManager.refreshList();
-    }, CONFIG.AUTO_SYNC_INTERVAL);
+/* =============================================================================
+   18.  EVENT LISTENERS
+   ============================================================================= */
+function bindEvents() {
+  // ── Navigation ──
+  $$('.nav-item').forEach(btn => {
+    btn.addEventListener('click', () => Pages.navigate(btn.dataset.nav));
+  });
 
-    DOM.setText(DOM.el('#syncText'), 'Auto-sync: ON');
-  },
+  // ── Sidebar toggle (mobile) ──
+  $('#sidebarToggle')?.addEventListener('click', () => toggleClass('#sidebar', 'active'));
 
-  stop: () => {
-    if (AppState.syncInterval) {
-      clearInterval(AppState.syncInterval);
-      AppState.syncInterval = null;
+  // ── Server actions ──
+  $('#createServerBtn')?.addEventListener('click', Servers.create);
+  $('#refreshServersBtn')?.addEventListener('click', () => Servers.refresh().catch(() => {}));
+  $('#refreshServersBtn2')?.addEventListener('click', () => Servers.refresh().catch(() => {}));
+
+  // ── Admin panel refresh ──
+  $('#adminRefreshServers')?.addEventListener('click', async () => {
+    await Servers.refresh().catch(() => {});
+    Admin.renderServersTable(State.servers);
+  });
+  $('#adminRefreshUsers')?.addEventListener('click', () => Admin.renderUsersTable());
+
+  // ── Console ──
+  $('#sendCommandBtn')?.addEventListener('click', Servers.sendCommand);
+
+  const consoleInput = $('#consoleInput');
+  consoleInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      Servers.sendCommand();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!State.cmdHistory.length) return;
+      State.cmdHistoryIdx = Math.min(State.cmdHistoryIdx + 1, State.cmdHistory.length - 1);
+      consoleInput.value = State.cmdHistory[State.cmdHistory.length - 1 - State.cmdHistoryIdx] || '';
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      State.cmdHistoryIdx = Math.max(State.cmdHistoryIdx - 1, -1);
+      consoleInput.value = State.cmdHistoryIdx >= 0
+        ? State.cmdHistory[State.cmdHistory.length - 1 - State.cmdHistoryIdx]
+        : '';
     }
-    DOM.setText(DOM.el('#syncText'), 'Auto-sync: OFF');
-  },
-};
+  });
 
-// ============================================
-// UI EVENT HANDLERS
-// ============================================
+  $('#clearConsoleBtn')?.addEventListener('click', () => { Console.clear(); Toast.success('Console cleared'); });
+  $('#copyConsoleBtn')?.addEventListener('click',  () => {
+    Console.copy()?.then(() => Toast.success('Copied to clipboard')).catch(() => Toast.warn('Copy not supported in this browser'));
+  });
 
-const UIHandlers = {
-  setupEventListeners: () => {
-    // Navigation
-    DOM.els('.nav-item').forEach(item => {
-      DOM.on(item, 'click', () => {
-        PageManager.navigate(item.dataset.nav);
-      });
+  $('#autoScrollCheckbox')?.addEventListener('change', (e) => { State.autoScroll = e.target.checked; });
+
+  // ── Server name char-count ──
+  $('#serverName')?.addEventListener('input', (e) => {
+    setText('#serverNameCount', String(e.target.value.length));
+  });
+
+  // ── Global search ──
+  $('#globalSearch')?.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    $$('.server-card').forEach(card => {
+      const title = card.querySelector('.server-card-title')?.textContent?.toLowerCase() || '';
+      toggleClass(card, 'hidden', !!q && !title.includes(q));
     });
+  });
 
-    // Sidebar toggle
-    DOM.on(DOM.el('#sidebarToggle'), 'click', () => {
-      DOM.toggleClass(DOM.el('#sidebar'), 'active');
+  // ── Theme toggle ──
+  $('#themeToggleBtn')?.addEventListener('click', Theme.toggle);
+
+  // ── Preset cards ──
+  $$('.preset-card').forEach(card => {
+    card.addEventListener('click', () => Presets.select(card.dataset.preset));
+  });
+
+  // ── Admin tabs ──
+  $$('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.adminTab;
+      State.adminTab = target;
+      $$('.admin-tab').forEach(t => removeClass(t, 'active'));
+      addClass(tab, 'active');
+      $$('.admin-sub-section').forEach(s => removeClass(s, 'active'));
+      addClass(`#admin-${target}`, 'active');
+      if (target === 'servers') Admin.renderServersTable(State.servers);
+      if (target === 'users')   Admin.renderUsersTable();
     });
+  });
 
-    // Create server button
-    DOM.on(DOM.el('#createServerBtn'), 'click', ServerManager.createServer);
+  // ── Close sidebar on outside click (mobile) ──
+  document.addEventListener('click', (e) => {
+    const sidebar = $('#sidebar');
+    const toggle  = $('#sidebarToggle');
+    if (sidebar?.classList.contains('active') && !sidebar.contains(e.target) && !toggle?.contains(e.target)) {
+      removeClass(sidebar, 'active');
+    }
+  });
+}
 
-    // Refresh buttons
-    DOM.on(DOM.el('#refreshServersBtn'), 'click', ServerManager.refreshList);
-    DOM.on(DOM.el('#refreshServersBtn2'), 'click', ServerManager.refreshList);
+/* =============================================================================
+   19.  BOOT
+   ============================================================================= */
+async function boot() {
+  Log.info('TrashFreeHosting dashboard booting…');
 
-    // Admin refresh buttons
-    DOM.on(DOM.el('#adminRefreshServers'), 'click', async () => {
-      await ServerManager.refreshList();
-      AdminManager.renderAdminServersTable(AppState.servers);
-    });
-    DOM.on(DOM.el('#adminRefreshUsers'), 'click', AdminManager.renderUsersTable);
+  // Apply persisted theme immediately (prevents flash)
+  Theme.apply(State.theme);
 
-    // Send command button
-    DOM.on(DOM.el('#sendCommandBtn'), 'click', ServerManager.sendCommand);
+  // Wire DOM events
+  bindEvents();
 
-    // Console input
-    const consoleInput = DOM.el('#consoleInput');
-    DOM.on(consoleInput, 'keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        ServerManager.sendCommand();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        if (AppState.commandHistory.length === 0) return;
-        AppState.commandHistoryIndex = Math.min(
-          AppState.commandHistoryIndex + 1,
-          AppState.commandHistory.length - 1
-        );
-        const idx = AppState.commandHistory.length - 1 - AppState.commandHistoryIndex;
-        consoleInput.value = AppState.commandHistory[idx] || '';
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        AppState.commandHistoryIndex = Math.max(AppState.commandHistoryIndex - 1, -1);
-        const idx = AppState.commandHistoryIndex >= 0
-          ? AppState.commandHistory.length - 1 - AppState.commandHistoryIndex
-          : -1;
-        consoleInput.value = idx >= 0 ? AppState.commandHistory[idx] : '';
-      }
-    });
+  // Connect socket
+  Socket.init();
 
-    // Console controls
-    DOM.on(DOM.el('#clearConsoleBtn'), 'click', () => {
-      ConsoleManager.clear();
-      Toast.show('Console cleared', 'success');
-    });
+  // Activate default preset
+  Presets.select('survival');
 
-    DOM.on(DOM.el('#copyConsoleBtn'), 'click', () => {
-      const content = ConsoleManager.getContent();
-      navigator.clipboard?.writeText(content).then(() => {
-        Toast.show('Console content copied', 'success');
-      });
-    });
+  // Initial server load
+  await Servers.refresh().catch(err => {
+    Log.error('Initial server load failed:', err.message);
+    Toast.error('Could not load servers. Check backend connectivity.', 'Load Error');
+  });
 
-    DOM.on(DOM.el('#autoScrollCheckbox'), 'change', (e) => {
-      AppState.autoScroll = e.target.checked;
-    });
+  // Background services
+  Latency.start();
+  AutoSync.start();
 
-    // Server name character count
-    DOM.on(DOM.el('#serverName'), 'input', (e) => {
-      DOM.setText(DOM.el('#serverNameCount'), String(e.target.value.length));
-    });
+  document.body.classList.add('loaded');
+  Toast.success('🎮 Dashboard ready!');
+  Console.addLine('Dashboard initialised. Select a server to begin.', 'success');
+  Log.info('Boot complete.');
+}
 
-    // Global search
-    DOM.on(DOM.el('#globalSearch'), 'input', (e) => {
-      const query = e.target.value.toLowerCase();
-      DOM.els('.server-card').forEach(card => {
-        const title = card.querySelector('.server-card-title')?.textContent?.toLowerCase() || '';
-        DOM.toggleClass(card, 'hidden', query.length > 0 && !title.includes(query));
-      });
-    });
-
-    // Theme toggle
-    DOM.on(DOM.el('#themeToggleBtn'), 'click', ThemeManager.toggle);
-
-    // Preset cards
-    DOM.els('.preset-card').forEach(card => {
-      DOM.on(card, 'click', () => {
-        PresetManager.select(card.dataset.preset);
-      });
-    });
-
-    // Admin tabs
-    DOM.els('.admin-tab').forEach(tab => {
-      DOM.on(tab, 'click', () => {
-        const target = tab.dataset.adminTab;
-        AppState.currentAdminTab = target;
-
-        DOM.els('.admin-tab').forEach(t => DOM.removeClass(t, 'active'));
-        DOM.addClass(tab, 'active');
-
-        DOM.els('.admin-sub-section').forEach(s => DOM.removeClass(s, 'active'));
-        const sub = DOM.el(`#admin-${target}`);
-        if (sub) DOM.addClass(sub, 'active');
-
-        if (target === 'servers') AdminManager.renderAdminServersTable(AppState.servers);
-        if (target === 'users') AdminManager.renderUsersTable();
-      });
-    });
-  },
-};
-
-// ============================================
-// INITIALIZATION
-// ============================================
-
-const App = {
-  init: async () => {
-    Logger.info('Initializing Minecraft Dashboard…');
-
-    // Apply saved theme
-    ThemeManager.apply(AppState.theme);
-
-    // Setup UI handlers
-    UIHandlers.setupEventListeners();
-
-    // Initialize socket
-    SocketManager.init();
-
-    // Load servers
-    await ServerManager.refreshList();
-
-    // Start latency monitoring
-    LatencyMonitor.start();
-
-    // Start auto-sync
-    AutoSync.start();
-
-    // Activate default preset
-    PresetManager.select('survival');
-
-    // Mark as loaded
-    document.body.classList.add('loaded');
-    Toast.show('🎮 Dashboard ready!', 'success');
-    ConsoleManager.addLine('Dashboard initialised. Select a server to begin.', 'success');
-
-    Logger.info('Dashboard initialized successfully');
-  },
-};
-
-// ============================================
-// DOM READY
-// ============================================
-
+/* =============================================================================
+   20.  ENTRY POINT
+   ============================================================================= */
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', App.init);
+  document.addEventListener('DOMContentLoaded', boot);
 } else {
-  App.init();
+  boot();
 }
 
-// ============================================
-// ERROR HANDLING
-// ============================================
-
-window.addEventListener('error', (event) => {
-  Logger.error(`Global error: ${event.message}`);
+/* =============================================================================
+   21.  GLOBAL ERROR BOUNDARIES
+   ============================================================================= */
+window.addEventListener('error', (ev) => {
+  Log.error('Uncaught error:', ev.message, ev.filename, ev.lineno);
 });
-
-window.addEventListener('unhandledrejection', (event) => {
-  Logger.error(`Unhandled rejection: ${event.reason}`);
+window.addEventListener('unhandledrejection', (ev) => {
+  Log.error('Unhandled rejection:', ev.reason);
 });
-
-// ============================================
-// EXPORT FOR TESTING
-// ============================================
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    AppState,
-    API,
-    ServerManager,
-    ConsoleManager,
-    SocketManager,
-    Toast,
-    PageManager,
-    PresetManager,
-    AdminManager,
-  };
-}
