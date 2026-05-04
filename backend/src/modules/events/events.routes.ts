@@ -20,7 +20,7 @@ eventsRouter.post('/events/auth', asyncHandler(async (req, res) => {
   await recordAuthEvent({
     type: body.type,
     username: body.username,
-    ip: req.ip,
+    ip: req.ip || 'unknown',
     userAgent: req.get('user-agent') ?? 'unknown',
   });
   res.status(201).json({ ok: true });
