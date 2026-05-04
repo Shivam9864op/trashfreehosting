@@ -909,7 +909,7 @@ function tryLogin() {
     }
     saveUser();
   }
-  logAuthEvent(isNew?'register':'login', username);
+  logAuthEvent(isNew ? 'register' : 'login', username);
   bootDashboard();
 }
 
@@ -1143,7 +1143,6 @@ function startLatencyMonitor() {
 function boot() {
   // Check for saved user session
   if(loadUser()) {
-    logAuthEvent('login', S.user.name);
     bootDashboard();
   }
   bindEvents();

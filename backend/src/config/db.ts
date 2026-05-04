@@ -7,7 +7,7 @@ let db: Db | null = null;
 export async function getDb() {
   if (!env.MONGODB_URI || !env.MONGODB_DB) {
     throw Object.assign(
-      new Error('MongoDB not configured. Set MONGODB_URI and MONGODB_DB.'),
+      new Error('MongoDB not configured. Admin metrics and event logging are disabled until MONGODB_URI and MONGODB_DB are set.'),
       { status: 503 },
     );
   }
