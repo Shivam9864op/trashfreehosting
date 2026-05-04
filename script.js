@@ -2,199 +2,326 @@ const API_BASE = 'https://hosting.trashmcpe.com/backend/api';
 const SOCKET_BASE = 'https://hosting.trashmcpe.com';
 
 const el = (s) => document.querySelector(s);
-const state = { selectedServerId: null, socket: null, reconnectTimer: null };
 
-function showError(message) {
-  const box = el('[data-console-output]');
-  if (!box) return;
-  const p = document.createElement('div');
-  p.className = 'log-error';
-  p.textContent = `ERROR: ${message}`;
-  box.appendChild(p);
-  box.scrollTop = box.scrollHeight;
-}
+const state = {
+    selectedServerId: null,
+    socket: null
+};
 
-function addLog(line, type = 'info') {
-  const box = el('[data-console-output]');
-  if (!box) return;
-  const p = document.createElement('div');
-  p.className = `log-${type}`;
-  p.textContent = line;
-  box.appendChild(p);
-  box.scrollTop = box.scrollHeight;
+function addLog(text, type = 'info') {
+
+    const box = el('[data-console-output]');
+
+    if (!box) return;
+
+    const line = document.createElement('div');
+
+    line.className = `log-${type}`;
+
+    line.textContent = text;
+
+    box.appendChild(line);
+
+    box.scrollTop = box.scrollHeight;
 }
 
 async function api(path, options = {}) {
-  try {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
 
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || `HTTP ${res.status}`);
+    const response = await fetch(
+        `${API_BASE}${path}`,
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            ...options
+        }
+    );
+
+    if (!response.ok) {
+
+        const text = await response.text();
+
+        throw new Error(text || 'API Error');
     }
 
-    return await res.json();
-  } catch (error) {
-    console.error('[API] request failed', path, error);
-    showError(error.message);
-    throw error;
-  }
-}
-
-function setButtonLoading(selector, loading) {
-  const button = el(selector);
-  if (!button) return;
-  button.disabled = loading;
-  button.dataset.loading = loading ? 'true' : 'false';
-}
-
-function subscribeConsole(serverId) {
-  if (!state.socket || !serverId) return;
-  state.socket.emit('console:subscribe', String(serverId));
-  addLog(`Subscribed to console:${serverId}`, 'success');
-}
-
-async function refreshServers() {
-  const list = el('[data-server-list]');
-  if (!list) return;
-  list.innerHTML = '<p>Loading servers...</p>';
-
-  try {
-    const servers = await api('/servers');
-    list.innerHTML = '';
-    if (!servers.length) {
-      list.innerHTML = '<p>No servers found.</p>';
-      return;
-    }
-
-    servers.forEach((item) => {
-      const s = item.attributes || item;
-      const serverId = s.identifier || String(s.id);
-      const btn = document.createElement('button');
-      btn.textContent = `${s.name} (${serverId})`;
-      btn.onclick = () => {
-        state.selectedServerId = serverId;
-        addLog(`Selected ${btn.textContent}`);
-        subscribeConsole(serverId);
-      };
-      list.appendChild(btn);
-    });
-  } catch (error) {
-    list.innerHTML = `<p class="error">Failed to load servers: ${error.message}</p>`;
-  }
-}
-
-async function createServer() {
-  const name = el('[data-server-name]')?.value?.trim();
-  const ramMb = Number(el('[data-server-ram]')?.value || 2048);
-  if (!name) {
-    showError('Server name required');
-    return;
-  }
-
-  setButtonLoading('[data-action="create-server"]', true);
-  addLog('Provisioning server...');
-  try {
-    const created = await api('/create-server', { method: 'POST', body: JSON.stringify({ name, ramMb }) });
-    state.selectedServerId = created.identifier || String(created.id);
-    addLog(`Created ${created.name} (${state.selectedServerId})`, 'success');
-    subscribeConsole(state.selectedServerId);
-    await refreshServers();
-  } catch (error) {
-    showError(`Create failed: ${error.message}`);
-  } finally {
-    setButtonLoading('[data-action="create-server"]', false);
-  }
+    return response.json();
 }
 
 function setupSocket() {
-  if (!window.io) {
-    showError('Socket.IO library failed to load');
-    return;
-  }
 
-  state.socket = window.io(SOCKET_BASE, {
-    path: '/socket.io',
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-  });
+    if (!window.io) {
 
-  state.socket.on('connect', () => {
-    console.log('Socket connected');
-    addLog('Console socket connected', 'success');
-    if (state.selectedServerId) subscribeConsole(state.selectedServerId);
-  });
+        addLog('Socket.IO failed to load', 'error');
 
-  state.socket.on('disconnect', (reason) => {
-    console.error('[SOCKET] disconnected', reason);
-    showError(`Socket disconnected: ${reason}`);
-  });
+        return;
+    }
 
-  state.socket.on('connect_error', (err) => {
-    console.error('[SOCKET] connect_error', err);
-    showError(`Socket connect error: ${err.message}`);
-  });
+    state.socket = io(SOCKET_BASE, {
+        path: '/socket.io/',
+        transports: ['websocket', 'polling']
+    });
 
-  state.socket.on('console:line', (msg) => addLog(msg.line));
+    state.socket.on('connect', () => {
+
+        addLog('Console socket connected', 'success');
+
+        if (state.selectedServerId) {
+
+            state.socket.emit(
+                'console:subscribe',
+                state.selectedServerId
+            );
+        }
+    });
+
+    state.socket.on('disconnect', () => {
+
+        addLog('Socket disconnected', 'error');
+    });
+
+    state.socket.on('connect_error', (err) => {
+
+        addLog(`Socket Error: ${err.message}`, 'error');
+    });
+
+    state.socket.on('console:line', (data) => {
+
+        addLog(data.line || JSON.stringify(data));
+    });
 }
 
-async function runPower(signal) {
-  if (!state.selectedServerId) {
-    showError('Select a server first');
-    return;
-  }
+async function refreshServers() {
 
-  const selector = signal === 'start' ? '[data-action="start-server"]' : '[data-action="stop-server"]';
-  setButtonLoading(selector, true);
-  try {
-    const path = signal === 'start' ? '/start-server/' : '/stop-server/';
-    await api(path + state.selectedServerId, { method: 'POST' });
-    addLog(`${signal} requested`, 'success');
-  } catch (error) {
-    showError(`${signal} failed: ${error.message}`);
-  } finally {
-    setButtonLoading(selector, false);
-  }
+    const list = el('[data-server-list]');
+
+    if (!list) return;
+
+    list.innerHTML = 'Loading...';
+
+    try {
+
+        const servers = await api('/servers');
+
+        list.innerHTML = '';
+
+        if (!servers.length) {
+
+            list.innerHTML = '<p>No servers found</p>';
+
+            return;
+        }
+
+        servers.forEach((server) => {
+
+            const s = server.attributes || server;
+
+            const id = s.identifier || s.id;
+
+            const btn = document.createElement('button');
+
+            btn.innerText = `${s.name} (${id})`;
+
+            btn.onclick = () => {
+
+                state.selectedServerId = id;
+
+                addLog(`Selected ${s.name}`, 'success');
+
+                if (state.socket) {
+
+                    state.socket.emit(
+                        'console:subscribe',
+                        String(id)
+                    );
+                }
+            };
+
+            list.appendChild(btn);
+        });
+
+    } catch (err) {
+
+        console.error(err);
+
+        list.innerHTML = `<p>${err.message}</p>`;
+
+        addLog(err.message, 'error');
+    }
+}
+
+async function createServer() {
+
+    const name =
+        el('[data-server-name]')?.value?.trim();
+
+    const ramMb =
+        Number(
+            el('[data-server-ram]')?.value || 1024
+        );
+
+    if (!name) {
+
+        addLog('Server name required', 'error');
+
+        return;
+    }
+
+    addLog('Creating server...');
+
+    try {
+
+        const created = await api(
+            '/create-server',
+            {
+                method: 'POST',
+
+                body: JSON.stringify({
+                    name,
+                    ramMb
+                })
+            }
+        );
+
+        state.selectedServerId =
+            created.identifier || created.id;
+
+        addLog(
+            `Server Created: ${created.name}`,
+            'success'
+        );
+
+        refreshServers();
+
+    } catch (err) {
+
+        console.error(err);
+
+        addLog(
+            `Create Failed: ${err.message}`,
+            'error'
+        );
+    }
+}
+
+async function power(action) {
+
+    if (!state.selectedServerId) {
+
+        addLog('Select a server first', 'error');
+
+        return;
+    }
+
+    try {
+
+        const endpoint =
+            action === 'start'
+                ? '/start-server/'
+                : '/stop-server/';
+
+        await api(
+            endpoint + state.selectedServerId,
+            {
+                method: 'POST'
+            }
+        );
+
+        addLog(
+            `${action.toUpperCase()} signal sent`,
+            'success'
+        );
+
+    } catch (err) {
+
+        console.error(err);
+
+        addLog(err.message, 'error');
+    }
 }
 
 async function sendCommand() {
-  const input = el('[data-console-input]');
-  const command = input?.value?.trim();
-  if (!command || !state.selectedServerId) {
-    showError('Select a server and enter command');
-    return;
-  }
 
-  setButtonLoading('[data-action="send-command"]', true);
-  try {
-    await api(`/console/${state.selectedServerId}`, { method: 'POST', body: JSON.stringify({ command }) });
-    addLog(`> ${command}`);
-    input.value = '';
-  } catch (error) {
-    showError(`Command failed: ${error.message}`);
-  } finally {
-    setButtonLoading('[data-action="send-command"]', false);
-  }
+    const input =
+        el('[data-console-input]');
+
+    const command =
+        input?.value?.trim();
+
+    if (!command) {
+
+        addLog('Enter command', 'error');
+
+        return;
+    }
+
+    if (!state.selectedServerId) {
+
+        addLog('Select a server first', 'error');
+
+        return;
+    }
+
+    try {
+
+        await api(
+            `/console/${state.selectedServerId}`,
+            {
+                method: 'POST',
+
+                body: JSON.stringify({
+                    command
+                })
+            }
+        );
+
+        addLog(`> ${command}`);
+
+        input.value = '';
+
+    } catch (err) {
+
+        console.error(err);
+
+        addLog(err.message, 'error');
+    }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('API connected');
-  el('[data-action="create-server"]')?.addEventListener('click', createServer);
-  el('[data-action="refresh-servers"]')?.addEventListener('click', refreshServers);
-  el('[data-action="start-server"]')?.addEventListener('click', () => runPower('start'));
-  el('[data-action="stop-server"]')?.addEventListener('click', () => runPower('stop'));
-  el('[data-action="send-command"]')?.addEventListener('click', sendCommand);
+document.addEventListener(
+    'DOMContentLoaded',
+    () => {
 
-  if (!el('[data-server-list]') || !el('[data-console-output]') || !el('[data-console-input]')) {
-    console.error('Missing required frontend hooks');
-    showError('Missing required HTML data hooks');
-  }
+        setupSocket();
 
-  setupSocket();
-  refreshServers();
-});
+        refreshServers();
+
+        el('[data-action="create-server"]')
+            ?.addEventListener(
+                'click',
+                createServer
+            );
+
+        el('[data-action="refresh-servers"]')
+            ?.addEventListener(
+                'click',
+                refreshServers
+            );
+
+        el('[data-action="start-server"]')
+            ?.addEventListener(
+                'click',
+                () => power('start')
+            );
+
+        el('[data-action="stop-server"]')
+            ?.addEventListener(
+                'click',
+                () => power('stop')
+            );
+
+        el('[data-action="send-command"]')
+            ?.addEventListener(
+                'click',
+                sendCommand
+            );
+    }
+);
