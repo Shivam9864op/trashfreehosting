@@ -3,326 +3,355 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="TrashFreeHosting - Free Minecraft Server Hosting" />
-  
+  <meta name="description" content="TrashFreeHosting — Free Minecraft Server Hosting Dashboard" />
+  <meta name="theme-color" content="#0d0d0d" />
   <title>TrashFreeHosting — Free Minecraft Hosting</title>
-  
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Socket.IO — must load BEFORE script.js -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
 </head>
 
 <body>
-  <!-- Background Animated Elements -->
-  <div class="bg-container">
+
+  <!-- ── Animated background ─────────────────────────────────────────────── -->
+  <div class="bg-container" aria-hidden="true">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
     <div class="grid-bg"></div>
   </div>
 
-  <!-- Toast Notifications -->
-  <div class="toast-container" id="toastContainer"></div>
+  <!-- ── Toast container ─────────────────────────────────────────────────── -->
+  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
 
-  <!-- Main Layout -->
+  <!-- ── App shell ────────────────────────────────────────────────────────── -->
   <div class="app-shell">
-    
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar" id="sidebar">
-      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
-        <span></span>
-        <span></span>
-        <span></span>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         SIDEBAR
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+
+      <!-- Mobile hamburger -->
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="false">
+        <span></span><span></span><span></span>
       </button>
 
+      <!-- Brand -->
       <div class="sidebar-brand">
-        <div class="brand-icon">⛏</div>
+        <div class="brand-icon" aria-hidden="true">⛏</div>
         <span class="brand-text">TrashFree</span>
       </div>
 
+      <!-- Nav -->
       <nav class="sidebar-nav">
         <button class="nav-item active" data-nav="dashboard" aria-label="Dashboard">
-          <span class="nav-icon">🏠</span>
+          <span class="nav-icon" aria-hidden="true">🏠</span>
           <span class="nav-label">Dashboard</span>
         </button>
         <button class="nav-item" data-nav="servers" aria-label="My Servers">
-          <span class="nav-icon">🖥️</span>
+          <span class="nav-icon" aria-hidden="true">🖥️</span>
           <span class="nav-label">My Servers</span>
         </button>
-        <button class="nav-item" data-nav="create" aria-label="Create Server">
-          <span class="nav-icon">⚡</span>
+        <button class="nav-item" data-nav="create" aria-label="Quick Setup">
+          <span class="nav-icon" aria-hidden="true">⚡</span>
           <span class="nav-label">Quick Setup</span>
         </button>
-        <button class="nav-item" data-nav="console" aria-label="Console">
-          <span class="nav-icon">⌨️</span>
+        <button class="nav-item" data-nav="console" aria-label="Live Console">
+          <span class="nav-icon" aria-hidden="true">⌨️</span>
           <span class="nav-label">Console</span>
         </button>
         <button class="nav-item" data-nav="admin" aria-label="Admin Panel">
-          <span class="nav-icon">🔧</span>
+          <span class="nav-icon" aria-hidden="true">🔧</span>
           <span class="nav-label">Admin</span>
           <span class="nav-badge">PRO</span>
         </button>
       </nav>
 
+      <!-- Footer indicators -->
       <div class="sidebar-footer">
-        <div class="sync-indicator" id="syncIndicator">
+        <div class="sync-indicator">
           <span class="sync-dot" id="syncDot"></span>
           <span id="syncText">Auto-sync: ON</span>
         </div>
-        <div class="connection-status" style="margin-top: 0.5rem;">
+        <div class="connection-status" style="margin-top:.5rem">
           <span class="status-dot" id="connectionDot"></span>
-          <span id="connectionText">Connecting...</span>
+          <span id="connectionText">Connecting…</span>
         </div>
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-      
-      <!-- Header -->
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         MAIN CONTENT
+         ═══════════════════════════════════════════════════════════════════════ -->
+    <main class="main-content" role="main">
+
+      <!-- Top header -->
       <header class="top-header">
         <div class="header-left">
           <h1 class="page-title" id="pageTitle">Dashboard</h1>
           <p class="page-subtitle" id="pageSubtitle">Manage your Minecraft servers</p>
         </div>
         <div class="header-right">
-          <div class="search-box">
-            <input type="text" placeholder="Search servers..." class="search-input" id="globalSearch" />
-            <span class="search-icon">🔍</span>
+          <div class="search-box" role="search">
+            <label for="globalSearch" class="sr-only">Search servers</label>
+            <input type="search" id="globalSearch" placeholder="Search servers…" class="search-input" autocomplete="off" />
+            <span class="search-icon" aria-hidden="true">🔍</span>
           </div>
-          <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light/dark mode">🌙</button>
-          <button class="header-action-btn" id="settingsBtn" title="Settings">⚙️</button>
+          <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
+          <button class="header-action-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙️</button>
         </div>
       </header>
 
-      <!-- === DASHBOARD PAGE === -->
-      <div class="page-section active" id="page-dashboard" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+      <!-- ─────────────────────────────────────────────────────────────────────
+           PAGE: DASHBOARD
+           ───────────────────────────────────────────────────────────────────── -->
+      <div class="page-section active" id="page-dashboard">
 
-        <!-- Stats Row -->
-        <section class="stats-row">
+        <!-- Stats row -->
+        <section class="stats-row" aria-label="Server statistics">
+
           <div class="stat-card glass-effect">
             <div class="stat-header">
-              <span class="stat-icon">🖥️</span>
+              <span class="stat-icon" aria-hidden="true">🖥️</span>
               <h3>Active Servers</h3>
             </div>
-            <div class="stat-value" id="activeServersCount">0</div>
+            <div class="stat-value" id="activeServersCount" aria-live="polite">0</div>
             <div class="stat-meta">Live instances</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="activeServersBar" style="width: 0%;"></div></div>
+            <div class="stat-bar" role="progressbar" aria-label="Active servers percentage">
+              <div class="stat-bar-fill" id="activeServersBar" style="width:0%"></div>
+            </div>
           </div>
 
           <div class="stat-card glass-effect">
             <div class="stat-header">
-              <span class="stat-icon">👥</span>
+              <span class="stat-icon" aria-hidden="true">👥</span>
               <h3>Total Players</h3>
             </div>
-            <div class="stat-value" id="totalPlayersCount">0</div>
+            <div class="stat-value" id="totalPlayersCount" aria-live="polite">0</div>
             <div class="stat-meta">Online now</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="playersBar" style="width: 0%;"></div></div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="playersBar" style="width:0%"></div></div>
           </div>
 
           <div class="stat-card glass-effect">
             <div class="stat-header">
-              <span class="stat-icon">🌐</span>
+              <span class="stat-icon" aria-hidden="true">🌐</span>
               <h3>Latency</h3>
             </div>
-            <div class="stat-value" id="latencyValue">--ms</div>
+            <div class="stat-value" id="latencyValue" aria-live="polite">—</div>
             <div class="stat-meta">Panel response</div>
-            <div class="stat-bar">
-              <div class="stat-bar-fill" id="latencyBar" style="width: 85%;"></div>
-            </div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="latencyBar" style="width:85%"></div></div>
           </div>
 
           <div class="stat-card glass-effect">
             <div class="stat-header">
-              <span class="stat-icon">🔗</span>
+              <span class="stat-icon" aria-hidden="true">🔗</span>
               <h3>Panel Status</h3>
             </div>
-            <div class="stat-value" id="panelStatusValue" style="font-size:1.2rem;">Checking…</div>
+            <div class="stat-value" id="panelStatusValue" style="font-size:1.1rem" aria-live="polite">Checking…</div>
             <div class="stat-meta">Pterodactyl</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="panelBar" style="width: 0%;"></div></div>
+            <div class="stat-bar"><div class="stat-bar-fill" id="panelBar" style="width:0%"></div></div>
           </div>
+
         </section>
 
-        <!-- Your Servers Summary -->
-        <section class="section-card glass-effect">
+        <!-- Server list (summary) -->
+        <section class="section-card glass-effect" aria-label="Your servers">
           <div class="section-header">
             <h2>🖥️ Your Servers</h2>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
+            <div style="display:flex;gap:.5rem;align-items:center">
               <span class="section-badge" id="serversCountBadge">0 servers</span>
-              <button class="btn btn-secondary" id="refreshServersBtn" data-action="refresh-servers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+              <button class="btn btn-secondary" id="refreshServersBtn"
+                      style="padding:.4rem .8rem;font-size:.8rem" aria-label="Refresh server list">
+                ↺ Refresh
+              </button>
             </div>
           </div>
-          <div class="servers-container" id="serversContainer">
+          <div class="servers-container" id="serversContainer" aria-live="polite">
             <div class="empty-state">
-              <div class="empty-icon">🎮</div>
+              <div class="empty-icon" aria-hidden="true">🎮</div>
               <h3>No servers yet</h3>
-              <p>Go to <strong>Quick Setup</strong> to create your first Minecraft server in seconds!</p>
+              <p>Go to <strong>Quick Setup</strong> to create your first Minecraft server!</p>
             </div>
           </div>
         </section>
 
-      </div>
+      </div><!-- /page-dashboard -->
 
-      <!-- === SERVERS PAGE (detailed list) === -->
-      <div class="page-section" id="page-servers" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
-        <section class="section-card glass-effect">
+      <!-- ─────────────────────────────────────────────────────────────────────
+           PAGE: SERVERS (full list)
+           ───────────────────────────────────────────────────────────────────── -->
+      <div class="page-section" id="page-servers">
+        <section class="section-card glass-effect" aria-label="All servers">
           <div class="section-header">
             <h2>🖥️ All Servers</h2>
-            <div style="display:flex;gap:0.5rem;align-items:center;">
+            <div style="display:flex;gap:.5rem;align-items:center">
               <span class="section-badge" id="serversCountBadge2">0 servers</span>
-              <button class="btn btn-secondary" id="refreshServersBtn2" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+              <button class="btn btn-secondary" id="refreshServersBtn2"
+                      style="padding:.4rem .8rem;font-size:.8rem" aria-label="Refresh">
+                ↺ Refresh
+              </button>
             </div>
           </div>
-          <div class="servers-container" id="serversContainer2">
+          <div class="servers-container" id="serversContainer2" aria-live="polite">
             <div class="empty-state">
-              <div class="empty-icon">🎮</div>
+              <div class="empty-icon" aria-hidden="true">🎮</div>
               <h3>No servers found</h3>
-              <p>Create your first server using the Quick Setup tab.</p>
+              <p>Create your first server using the <strong>Quick Setup</strong> tab.</p>
             </div>
           </div>
         </section>
-      </div>
+      </div><!-- /page-servers -->
 
-      <!-- === QUICK SETUP PAGE === -->
-      <div class="page-section" id="page-create" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+      <!-- ─────────────────────────────────────────────────────────────────────
+           PAGE: QUICK SETUP / CREATE SERVER
+           ───────────────────────────────────────────────────────────────────── -->
+      <div class="page-section" id="page-create">
         <section class="section-card glass-effect">
           <div class="section-header">
             <h2>⚡ Quick Server Setup</h2>
-            <p>Your Minecraft server, ready in seconds!</p>
+            <p style="color:var(--color-text-muted);font-size:.9rem">Your Minecraft server, ready in seconds!</p>
           </div>
 
-          <!-- Step 1: Pick a preset -->
-          <div class="form-group" style="margin-bottom:var(--space-xl);">
+          <!-- Step 1 — Preset -->
+          <div class="form-group" style="margin-bottom:var(--space-xl)">
             <label class="form-label">Step 1 — Choose Server Type</label>
-            <div class="preset-grid" id="presetGrid">
-              <div class="preset-card active" data-preset="survival">
-                <span class="preset-icon">🌲</span>
+            <div class="preset-grid" id="presetGrid" role="radiogroup" aria-label="Server type presets">
+
+              <div class="preset-card active" data-preset="survival" role="radio" aria-checked="true" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">🌲</span>
                 <span class="preset-name">Survival</span>
                 <span class="preset-desc">Classic MC</span>
               </div>
-              <div class="preset-card" data-preset="pvp">
-                <span class="preset-icon">⚔️</span>
+
+              <div class="preset-card" data-preset="pvp" role="radio" aria-checked="false" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">⚔️</span>
                 <span class="preset-name">PvP</span>
                 <span class="preset-desc">Battle arena</span>
               </div>
-              <div class="preset-card" data-preset="skyblock">
-                <span class="preset-icon">🏝️</span>
+
+              <div class="preset-card" data-preset="skyblock" role="radio" aria-checked="false" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">🏝️</span>
                 <span class="preset-name">Skyblock</span>
                 <span class="preset-desc">Sky islands</span>
               </div>
-              <div class="preset-card" data-preset="creative">
-                <span class="preset-icon">🎨</span>
+
+              <div class="preset-card" data-preset="creative" role="radio" aria-checked="false" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">🎨</span>
                 <span class="preset-name">Creative</span>
                 <span class="preset-desc">Build freely</span>
               </div>
-              <div class="preset-card" data-preset="minigames">
-                <span class="preset-icon">🎯</span>
+
+              <div class="preset-card" data-preset="minigames" role="radio" aria-checked="false" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">🎯</span>
                 <span class="preset-name">Minigames</span>
                 <span class="preset-desc">Fun modes</span>
               </div>
-              <div class="preset-card" data-preset="custom">
-                <span class="preset-icon">🔧</span>
+
+              <div class="preset-card" data-preset="custom" role="radio" aria-checked="false" tabindex="0">
+                <span class="preset-icon" aria-hidden="true">🔧</span>
                 <span class="preset-name">Custom</span>
                 <span class="preset-desc">Configure own</span>
               </div>
+
             </div>
           </div>
 
-          <!-- Step 2: Server details -->
-          <div class="form-group" style="margin-bottom:var(--space-xl);">
+          <!-- Step 2 — Details -->
+          <div class="form-group" style="margin-bottom:var(--space-xl)">
             <label class="form-label">Step 2 — Server Details</label>
-            <div class="create-form">
+
+            <div class="form-group" style="margin-bottom:var(--space-lg)">
+              <label for="serverName" class="form-label">Server Name</label>
+              <div class="input-wrapper">
+                <input id="serverName" type="text" placeholder="My Awesome Server"
+                       class="form-input" maxlength="32" autocomplete="off"
+                       aria-describedby="serverNameHint" />
+                <span class="input-char-count" aria-hidden="true">
+                  <span id="serverNameCount">0</span>/32
+                </span>
+              </div>
+              <small id="serverNameHint" style="color:var(--color-text-muted);font-size:.8rem;margin-top:.25rem;display:block">
+                Alphanumeric, spaces, hyphens and underscores only.
+              </small>
+            </div>
+
+            <div class="form-row" style="margin-bottom:var(--space-lg)">
               <div class="form-group">
-                <label for="serverName" class="form-label">Server Name</label>
-                <div class="input-wrapper">
-                  <input 
-                    id="serverName"
-                    type="text" 
-                    placeholder="My Awesome Server"
-                    class="form-input"
-                    maxlength="32"
-                  />
-                  <span class="input-char-count"><span id="serverNameCount">0</span>/32</span>
-                </div>
+                <label for="serverRam" class="form-label">RAM (MB)</label>
+                <input id="serverRam" type="number" placeholder="1024"
+                       class="form-input" value="1024" min="256" max="12288" step="256" />
               </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="serverRam" class="form-label">RAM (MB)</label>
-                  <div class="input-wrapper">
-                    <input 
-                      id="serverRam"
-                      type="number" 
-                      placeholder="1024"
-                      class="form-input"
-                      value="1024"
-                      min="256"
-                      max="8192"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label for="serverVersion" class="form-label">Version</label>
-                  <select id="serverVersion" class="form-input form-select">
-                    <option value="latest">Latest (1.21)</option>
-                    <option value="1.20.4">1.20.4</option>
-                    <option value="1.20">1.20</option>
-                    <option value="1.19.4">1.19.4</option>
-                    <option value="1.19">1.19</option>
-                    <option value="1.18.2">1.18.2</option>
-                    <option value="1.16.5">1.16.5</option>
-                    <option value="1.12.2">1.12.2</option>
-                    <option value="1.8.9">1.8.9</option>
-                  </select>
-                </div>
+              <div class="form-group">
+                <label for="serverVersion" class="form-label">Version</label>
+                <select id="serverVersion" class="form-input form-select">
+                  <option value="latest">Latest (1.21)</option>
+                  <option value="1.20.4">1.20.4</option>
+                  <option value="1.20">1.20</option>
+                  <option value="1.19.4">1.19.4</option>
+                  <option value="1.19">1.19</option>
+                  <option value="1.18.2">1.18.2</option>
+                  <option value="1.16.5">1.16.5</option>
+                  <option value="1.12.2">1.12.2</option>
+                  <option value="1.8.9">1.8.9</option>
+                </select>
               </div>
+            </div>
 
-              <div class="form-actions">
-                <button class="btn btn-primary btn-lg" id="createServerBtn" data-action="create-server">
-                  <span class="btn-icon">🚀</span>
-                  Launch Server!
-                </button>
-              </div>
+            <div class="form-actions">
+              <button class="btn btn-primary btn-lg" id="createServerBtn" aria-label="Create server">
+                <span class="btn-icon" aria-hidden="true">🚀</span>
+                Launch Server!
+              </button>
             </div>
           </div>
 
-          <!-- Preset info display -->
-          <div id="presetInfoBox" style="padding:var(--space-lg);background:rgba(80,200,120,0.07);border:1px solid var(--color-border);border-radius:var(--radius-lg);">
-            <strong style="color:var(--color-primary);">🌲 Survival Mode</strong>
-            <p style="margin-top:0.5rem;color:var(--color-text-muted);font-size:0.9rem;">Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.</p>
+          <!-- Preset info box -->
+          <div id="presetInfoBox" style="padding:var(--space-lg);background:rgba(80,200,120,.07);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
+            <strong style="color:var(--color-primary)">🌲 Survival Mode</strong>
+            <p style="margin-top:.5rem;color:var(--color-text-muted);font-size:.9rem">
+              Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.
+            </p>
           </div>
-        </section>
-      </div>
 
-      <!-- === CONSOLE PAGE === -->
-      <div class="page-section" id="page-console" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+        </section>
+      </div><!-- /page-create -->
+
+      <!-- ─────────────────────────────────────────────────────────────────────
+           PAGE: LIVE CONSOLE
+           ───────────────────────────────────────────────────────────────────── -->
+      <div class="page-section" id="page-console">
         <section class="section-card glass-effect">
           <div class="section-header">
             <h2>⌨️ Live Console</h2>
             <div class="console-status">
-              <span class="status-badge" id="consoleStatus">Idle</span>
-              <span class="latency-badge" id="consolePing">0ms</span>
+              <span class="status-badge" id="consoleStatus" aria-live="polite">Idle</span>
+              <span class="latency-badge" id="consolePing" aria-live="polite">—</span>
             </div>
           </div>
 
-          <div class="console-output" id="consoleOutput" aria-label="Console output">
+          <div class="console-output" id="consoleOutput"
+               role="log" aria-label="Server console output" aria-live="polite">
             <div class="console-welcome">
               <div class="console-line">🎮 Welcome to TrashFreeHosting Console</div>
-              <div class="console-line">   Select a server from the dashboard to begin.</div>
+              <div class="console-line" style="opacity:.6">   Select a server from the dashboard to begin.</div>
             </div>
           </div>
 
           <div class="console-input-group">
-            <input 
-              id="consoleInput"
-              type="text"
-              placeholder="Type a command… (↑↓ for history)"
-              class="console-input"
-              autocomplete="off"
-            />
-            <button class="btn btn-primary" id="sendCommandBtn" data-action="send-command">
+            <label for="consoleInput" class="sr-only">Console command</label>
+            <input id="consoleInput" type="text"
+                   placeholder="Type a command… (↑↓ for history)"
+                   class="console-input" autocomplete="off" spellcheck="false" />
+            <button class="btn btn-primary" id="sendCommandBtn" aria-label="Send command">
               Send
             </button>
           </div>
@@ -334,142 +363,170 @@
               <input type="checkbox" id="autoScrollCheckbox" checked />
               <span>Auto-scroll</span>
             </label>
-            <span id="selectedServerLabel" style="margin-left:auto;font-size:0.8rem;color:var(--color-text-muted);">No server selected</span>
+            <span id="selectedServerLabel"
+                  style="margin-left:auto;font-size:.8rem;color:var(--color-text-muted)">
+              No server selected
+            </span>
           </div>
         </section>
-      </div>
+      </div><!-- /page-console -->
 
-      <!-- === ADMIN PANEL PAGE === -->
-      <div class="page-section" id="page-admin" style="overflow-y:auto;flex:1;padding:var(--space-3xl);">
+      <!-- ─────────────────────────────────────────────────────────────────────
+           PAGE: ADMIN PANEL
+           ───────────────────────────────────────────────────────────────────── -->
+      <div class="page-section" id="page-admin">
 
-        <!-- Admin Tabs -->
-        <div class="admin-tabs">
-          <button class="admin-tab active" data-admin-tab="metrics">📊 System Metrics</button>
-          <button class="admin-tab" data-admin-tab="servers">🖥️ All Servers</button>
-          <button class="admin-tab" data-admin-tab="users">👥 Users</button>
+        <!-- Admin tab bar -->
+        <div class="admin-tabs" role="tablist" aria-label="Admin sections">
+          <button class="admin-tab active" data-admin-tab="metrics" role="tab" aria-selected="true">📊 System Metrics</button>
+          <button class="admin-tab" data-admin-tab="servers"  role="tab" aria-selected="false">🖥️ All Servers</button>
+          <button class="admin-tab" data-admin-tab="users"    role="tab" aria-selected="false">👥 Users</button>
         </div>
 
-        <!-- METRICS SUB-SECTION -->
-        <div class="admin-sub-section active" id="admin-metrics">
+        <!-- SUB: Metrics -->
+        <div class="admin-sub-section active" id="admin-metrics" role="tabpanel">
+
           <div class="admin-metrics-grid" id="adminMetricsGrid">
+
             <div class="metric-card glass-effect">
               <div class="metric-label">CPU Usage</div>
-              <div class="metric-value" id="metricCpu">--</div>
-              <div class="metric-sub" id="metricCpuSub">Calculating…</div>
+              <div class="metric-value" id="metricCpu">—</div>
+              <div class="metric-sub"  id="metricCpuSub">Calculating…</div>
               <div class="metric-bar"><div class="metric-bar-fill green" id="metricCpuBar" style="width:0%"></div></div>
             </div>
+
             <div class="metric-card glass-effect">
               <div class="metric-label">Memory</div>
-              <div class="metric-value" id="metricMem">--</div>
-              <div class="metric-sub" id="metricMemSub">Calculating…</div>
+              <div class="metric-value" id="metricMem">—</div>
+              <div class="metric-sub"  id="metricMemSub">Calculating…</div>
               <div class="metric-bar"><div class="metric-bar-fill blue" id="metricMemBar" style="width:0%"></div></div>
             </div>
+
             <div class="metric-card glass-effect">
               <div class="metric-label">Disk Usage</div>
-              <div class="metric-value" id="metricDisk">--</div>
-              <div class="metric-sub" id="metricDiskSub">Calculating…</div>
+              <div class="metric-value" id="metricDisk">—</div>
+              <div class="metric-sub"  id="metricDiskSub">Calculating…</div>
               <div class="metric-bar"><div class="metric-bar-fill yellow" id="metricDiskBar" style="width:0%"></div></div>
             </div>
+
             <div class="metric-card glass-effect">
               <div class="metric-label">Active Connections</div>
-              <div class="metric-value" id="metricConn">--</div>
-              <div class="metric-sub" id="metricConnSub">Users online</div>
+              <div class="metric-value" id="metricConn">—</div>
+              <div class="metric-sub"  id="metricConnSub">Users online</div>
               <div class="metric-bar"><div class="metric-bar-fill green" id="metricConnBar" style="width:0%"></div></div>
             </div>
+
             <div class="metric-card glass-effect">
               <div class="metric-label">Total Servers</div>
-              <div class="metric-value" id="metricServers">--</div>
-              <div class="metric-sub" id="metricServersSub">Across all users</div>
+              <div class="metric-value" id="metricServers">—</div>
+              <div class="metric-sub"  id="metricServersSub">Across all users</div>
               <div class="metric-bar"><div class="metric-bar-fill blue" id="metricServersBar" style="width:0%"></div></div>
             </div>
+
             <div class="metric-card glass-effect">
               <div class="metric-label">Uptime</div>
-              <div class="metric-value" id="metricUptime">--</div>
+              <div class="metric-value" id="metricUptime">—</div>
               <div class="metric-sub">Panel availability</div>
               <div class="metric-bar"><div class="metric-bar-fill green" style="width:99%"></div></div>
             </div>
+
           </div>
 
-          <!-- Chart placeholder -->
+          <!-- Activity chart -->
           <section class="section-card glass-effect">
             <div class="section-header">
               <h2>📈 Server Activity (Last 24h)</h2>
             </div>
-            <div id="activityChart" style="height:120px;display:flex;align-items:flex-end;gap:4px;padding:1rem;">
-              <!-- Bars rendered by JS -->
-            </div>
+            <div id="activityChart"
+                 style="height:120px;display:flex;align-items:flex-end;gap:4px;padding:1rem"
+                 role="img" aria-label="Server activity bar chart"></div>
           </section>
-        </div>
 
-        <!-- ALL SERVERS SUB-SECTION -->
-        <div class="admin-sub-section" id="admin-servers">
+        </div><!-- /admin-metrics -->
+
+        <!-- SUB: All Servers -->
+        <div class="admin-sub-section" id="admin-servers" role="tabpanel">
           <section class="section-card glass-effect">
             <div class="section-header">
               <h2>🖥️ All User Servers</h2>
-              <button class="btn btn-secondary" id="adminRefreshServers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+              <button class="btn btn-secondary" id="adminRefreshServers"
+                      style="padding:.4rem .8rem;font-size:.8rem">↺ Refresh</button>
             </div>
             <div class="admin-table-container">
               <table class="admin-table">
                 <thead>
                   <tr>
-                    <th>Server Name</th>
-                    <th>Owner</th>
-                    <th>Status</th>
-                    <th>RAM</th>
-                    <th>Players</th>
-                    <th>Actions</th>
+                    <th scope="col">Server Name</th>
+                    <th scope="col">Owner</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">RAM</th>
+                    <th scope="col">Players</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="adminServersTableBody">
-                  <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">Loading servers…</td></tr>
+                  <tr>
+                    <td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
+                      Loading servers…
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </section>
-        </div>
+        </div><!-- /admin-servers -->
 
-        <!-- USERS SUB-SECTION -->
-        <div class="admin-sub-section" id="admin-users">
+        <!-- SUB: Users -->
+        <div class="admin-sub-section" id="admin-users" role="tabpanel">
           <section class="section-card glass-effect">
             <div class="section-header">
               <h2>👥 User Management</h2>
-              <button class="btn btn-secondary" id="adminRefreshUsers" style="padding:0.4rem 0.8rem;font-size:0.8rem;">↺ Refresh</button>
+              <button class="btn btn-secondary" id="adminRefreshUsers"
+                      style="padding:.4rem .8rem;font-size:.8rem">↺ Refresh</button>
             </div>
             <div class="admin-table-container">
               <table class="admin-table">
                 <thead>
                   <tr>
-                    <th>Username</th>
-                    <th>Email</th>
-                    <th>Servers</th>
-                    <th>Status</th>
-                    <th>Joined</th>
-                    <th>Actions</th>
+                    <th scope="col">Username</th>
+                    <th scope="col">Email</th>
+                    <th scope="col">Servers</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Joined</th>
+                    <th scope="col">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="adminUsersTableBody">
-                  <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted);">Loading users…</td></tr>
+                  <tr>
+                    <td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
+                      Loading users…
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </section>
-        </div>
+        </div><!-- /admin-users -->
 
-      </div>
+      </div><!-- /page-admin -->
 
-    </main>
+    </main><!-- /main-content -->
 
-  </div>
+  </div><!-- /app-shell -->
 
-  <!-- Loading Overlay -->
-  <div class="loading-overlay" id="loadingOverlay">
+  <!-- ── Loading overlay ──────────────────────────────────────────────────── -->
+  <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="assertive">
     <div class="loader">
-      <div class="loader-spinner"></div>
-      <p id="loaderText">Loading...</p>
+      <div class="loader-spinner" aria-hidden="true"></div>
+      <p id="loaderText">Loading…</p>
     </div>
   </div>
 
-  <!-- Scripts -->
+  <!-- ── Accessibility: screen-reader only utility class ──────────────────── -->
+  <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}</style>
+
+  <!-- Main script — after DOM, after Socket.IO CDN -->
   <script src="script.js"></script>
+
 </body>
 </html>
