@@ -5,6 +5,9 @@ let client: MongoClient | null = null;
 let db: Db | null = null;
 
 export async function getDb() {
+  if (!env.MONGODB_URI || !env.MONGODB_DB) {
+    throw new Error('MongoDB not configured. Set MONGODB_URI and MONGODB_DB.');
+  }
   if (!client) {
     client = new MongoClient(env.MONGODB_URI);
     await client.connect();
