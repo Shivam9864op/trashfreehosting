@@ -6,7 +6,10 @@ let db: Db | null = null;
 
 export async function getDb() {
   if (!env.MONGODB_URI || !env.MONGODB_DB) {
-    throw new Error('MongoDB not configured. Admin metrics and event logging require MONGODB_URI and MONGODB_DB.');
+    throw Object.assign(
+      new Error('MongoDB not configured. Admin metrics and event logging require MONGODB_URI and MONGODB_DB.'),
+      { status: 503 },
+    );
   }
   if (!client) {
     client = new MongoClient(env.MONGODB_URI);
