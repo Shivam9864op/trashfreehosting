@@ -1,532 +1,483 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="TrashFreeHosting — Free Minecraft Server Hosting Dashboard" />
-  <meta name="theme-color" content="#0d0d0d" />
-  <title>TrashFreeHosting — Free Minecraft Hosting</title>
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
-  <!-- Stylesheet -->
-  <link rel="stylesheet" href="styles.css" />
-
-  <!-- Socket.IO — must load BEFORE script.js -->
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>BlockPulse — Free Minecraft Hosting</title>
+  <meta name="description" content="Free Minecraft server hosting. No credit card. No BS. Just vibes."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
 </head>
-
 <body>
 
-  <!-- ── Animated background ─────────────────────────────────────────────── -->
-  <div class="bg-container" aria-hidden="true">
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
-    <div class="grid-bg"></div>
-  </div>
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-grid"></div>
+  <div class="bg-blob b1"></div>
+  <div class="bg-blob b2"></div>
+  <div class="bg-blob b3"></div>
+</div>
 
-  <!-- ── Toast container ─────────────────────────────────────────────────── -->
-  <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="false"></div>
+<div id="toastWrap" role="alert" aria-live="polite"></div>
 
-  <!-- ── App shell ────────────────────────────────────────────────────────── -->
-  <div class="app-shell">
+<!-- ══ LANDING ══ -->
+<section id="landingPage" class="page-layer active">
+  <nav class="land-nav">
+    <div class="logo-mark">⛏ BlockPulse</div>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#howto">How it works</a>
+      <button class="btn-pill" id="loginNavBtn">Launch Dashboard →</button>
+    </div>
+    <button class="hamburger-land" id="hamburgerLand">☰</button>
+  </nav>
 
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         SIDEBAR
-         ═══════════════════════════════════════════════════════════════════════ -->
-    <aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
-
-      <!-- Mobile hamburger -->
-      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
-
-      <!-- Brand -->
-      <div class="sidebar-brand">
-        <div class="brand-icon" aria-hidden="true">⛏</div>
-        <span class="brand-text">TrashFree</span>
-      </div>
-
-      <!-- Nav -->
-      <nav class="sidebar-nav">
-        <button class="nav-item active" data-nav="dashboard" aria-label="Dashboard">
-          <span class="nav-icon" aria-hidden="true">🏠</span>
-          <span class="nav-label">Dashboard</span>
-        </button>
-        <button class="nav-item" data-nav="servers" aria-label="My Servers">
-          <span class="nav-icon" aria-hidden="true">🖥️</span>
-          <span class="nav-label">My Servers</span>
-        </button>
-        <button class="nav-item" data-nav="create" aria-label="Quick Setup">
-          <span class="nav-icon" aria-hidden="true">⚡</span>
-          <span class="nav-label">Quick Setup</span>
-        </button>
-        <button class="nav-item" data-nav="console" aria-label="Live Console">
-          <span class="nav-icon" aria-hidden="true">⌨️</span>
-          <span class="nav-label">Console</span>
-        </button>
-        <button class="nav-item" data-nav="admin" aria-label="Admin Panel">
-          <span class="nav-icon" aria-hidden="true">🔧</span>
-          <span class="nav-label">Admin</span>
-          <span class="nav-badge">PRO</span>
-        </button>
-      </nav>
-
-      <!-- Footer indicators -->
-      <div class="sidebar-footer">
-        <div class="sync-indicator">
-          <span class="sync-dot" id="syncDot"></span>
-          <span id="syncText">Auto-sync: ON</span>
-        </div>
-        <div class="connection-status" style="margin-top:.5rem">
-          <span class="status-dot" id="connectionDot"></span>
-          <span id="connectionText">Connecting…</span>
-        </div>
-      </div>
-    </aside>
-
-    <!-- ═══════════════════════════════════════════════════════════════════════
-         MAIN CONTENT
-         ═══════════════════════════════════════════════════════════════════════ -->
-    <main class="main-content" role="main">
-
-      <!-- Top header -->
-      <header class="top-header">
-        <div class="header-left">
-          <h1 class="page-title" id="pageTitle">Dashboard</h1>
-          <p class="page-subtitle" id="pageSubtitle">Manage your Minecraft servers</p>
-        </div>
-        <div class="header-right">
-          <div class="search-box" role="search">
-            <label for="globalSearch" class="sr-only">Search servers</label>
-            <input type="search" id="globalSearch" placeholder="Search servers…" class="search-input" autocomplete="off" />
-            <span class="search-icon" aria-hidden="true">🔍</span>
-          </div>
-          <button class="theme-toggle-btn" id="themeToggleBtn" title="Toggle light/dark mode" aria-label="Toggle theme">🌙</button>
-          <button class="header-action-btn" id="settingsBtn" title="Settings" aria-label="Settings">⚙️</button>
-        </div>
-      </header>
-
-      <!-- ─────────────────────────────────────────────────────────────────────
-           PAGE: DASHBOARD
-           ───────────────────────────────────────────────────────────────────── -->
-      <div class="page-section active" id="page-dashboard">
-
-        <!-- Stats row -->
-        <section class="stats-row" aria-label="Server statistics">
-
-          <div class="stat-card glass-effect">
-            <div class="stat-header">
-              <span class="stat-icon" aria-hidden="true">🖥️</span>
-              <h3>Active Servers</h3>
-            </div>
-            <div class="stat-value" id="activeServersCount" aria-live="polite">0</div>
-            <div class="stat-meta">Live instances</div>
-            <div class="stat-bar" role="progressbar" aria-label="Active servers percentage">
-              <div class="stat-bar-fill" id="activeServersBar" style="width:0%"></div>
-            </div>
-          </div>
-
-          <div class="stat-card glass-effect">
-            <div class="stat-header">
-              <span class="stat-icon" aria-hidden="true">👥</span>
-              <h3>Total Players</h3>
-            </div>
-            <div class="stat-value" id="totalPlayersCount" aria-live="polite">0</div>
-            <div class="stat-meta">Online now</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="playersBar" style="width:0%"></div></div>
-          </div>
-
-          <div class="stat-card glass-effect">
-            <div class="stat-header">
-              <span class="stat-icon" aria-hidden="true">🌐</span>
-              <h3>Latency</h3>
-            </div>
-            <div class="stat-value" id="latencyValue" aria-live="polite">—</div>
-            <div class="stat-meta">Panel response</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="latencyBar" style="width:85%"></div></div>
-          </div>
-
-          <div class="stat-card glass-effect">
-            <div class="stat-header">
-              <span class="stat-icon" aria-hidden="true">🔗</span>
-              <h3>Panel Status</h3>
-            </div>
-            <div class="stat-value" id="panelStatusValue" style="font-size:1.1rem" aria-live="polite">Checking…</div>
-            <div class="stat-meta">Pterodactyl</div>
-            <div class="stat-bar"><div class="stat-bar-fill" id="panelBar" style="width:0%"></div></div>
-          </div>
-
-        </section>
-
-        <!-- Server list (summary) -->
-        <section class="section-card glass-effect" aria-label="Your servers">
-          <div class="section-header">
-            <h2>🖥️ Your Servers</h2>
-            <div style="display:flex;gap:.5rem;align-items:center">
-              <span class="section-badge" id="serversCountBadge">0 servers</span>
-              <button class="btn btn-secondary" id="refreshServersBtn"
-                      style="padding:.4rem .8rem;font-size:.8rem" aria-label="Refresh server list">
-                ↺ Refresh
-              </button>
-            </div>
-          </div>
-          <div class="servers-container" id="serversContainer" aria-live="polite">
-            <div class="empty-state">
-              <div class="empty-icon" aria-hidden="true">🎮</div>
-              <h3>No servers yet</h3>
-              <p>Go to <strong>Quick Setup</strong> to create your first Minecraft server!</p>
-            </div>
-          </div>
-        </section>
-
-      </div><!-- /page-dashboard -->
-
-      <!-- ─────────────────────────────────────────────────────────────────────
-           PAGE: SERVERS (full list)
-           ───────────────────────────────────────────────────────────────────── -->
-      <div class="page-section" id="page-servers">
-        <section class="section-card glass-effect" aria-label="All servers">
-          <div class="section-header">
-            <h2>🖥️ All Servers</h2>
-            <div style="display:flex;gap:.5rem;align-items:center">
-              <span class="section-badge" id="serversCountBadge2">0 servers</span>
-              <button class="btn btn-secondary" id="refreshServersBtn2"
-                      style="padding:.4rem .8rem;font-size:.8rem" aria-label="Refresh">
-                ↺ Refresh
-              </button>
-            </div>
-          </div>
-          <div class="servers-container" id="serversContainer2" aria-live="polite">
-            <div class="empty-state">
-              <div class="empty-icon" aria-hidden="true">🎮</div>
-              <h3>No servers found</h3>
-              <p>Create your first server using the <strong>Quick Setup</strong> tab.</p>
-            </div>
-          </div>
-        </section>
-      </div><!-- /page-servers -->
-
-      <!-- ─────────────────────────────────────────────────────────────────────
-           PAGE: QUICK SETUP / CREATE SERVER
-           ───────────────────────────────────────────────────────────────────── -->
-      <div class="page-section" id="page-create">
-        <section class="section-card glass-effect">
-          <div class="section-header">
-            <h2>⚡ Quick Server Setup</h2>
-            <p style="color:var(--color-text-muted);font-size:.9rem">Your Minecraft server, ready in seconds!</p>
-          </div>
-
-          <!-- Step 1 — Preset -->
-          <div class="form-group" style="margin-bottom:var(--space-xl)">
-            <label class="form-label">Step 1 — Choose Server Type</label>
-            <div class="preset-grid" id="presetGrid" role="radiogroup" aria-label="Server type presets">
-
-              <div class="preset-card active" data-preset="survival" role="radio" aria-checked="true" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">🌲</span>
-                <span class="preset-name">Survival</span>
-                <span class="preset-desc">Classic MC</span>
-              </div>
-
-              <div class="preset-card" data-preset="pvp" role="radio" aria-checked="false" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">⚔️</span>
-                <span class="preset-name">PvP</span>
-                <span class="preset-desc">Battle arena</span>
-              </div>
-
-              <div class="preset-card" data-preset="skyblock" role="radio" aria-checked="false" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">🏝️</span>
-                <span class="preset-name">Skyblock</span>
-                <span class="preset-desc">Sky islands</span>
-              </div>
-
-              <div class="preset-card" data-preset="creative" role="radio" aria-checked="false" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">🎨</span>
-                <span class="preset-name">Creative</span>
-                <span class="preset-desc">Build freely</span>
-              </div>
-
-              <div class="preset-card" data-preset="minigames" role="radio" aria-checked="false" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">🎯</span>
-                <span class="preset-name">Minigames</span>
-                <span class="preset-desc">Fun modes</span>
-              </div>
-
-              <div class="preset-card" data-preset="custom" role="radio" aria-checked="false" tabindex="0">
-                <span class="preset-icon" aria-hidden="true">🔧</span>
-                <span class="preset-name">Custom</span>
-                <span class="preset-desc">Configure own</span>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- Step 2 — Details -->
-          <div class="form-group" style="margin-bottom:var(--space-xl)">
-            <label class="form-label">Step 2 — Server Details</label>
-
-            <div class="form-group" style="margin-bottom:var(--space-lg)">
-              <label for="serverName" class="form-label">Server Name</label>
-              <div class="input-wrapper">
-                <input id="serverName" type="text" placeholder="My Awesome Server"
-                       class="form-input" maxlength="32" autocomplete="off"
-                       aria-describedby="serverNameHint" />
-                <span class="input-char-count" aria-hidden="true">
-                  <span id="serverNameCount">0</span>/32
-                </span>
-              </div>
-              <small id="serverNameHint" style="color:var(--color-text-muted);font-size:.8rem;margin-top:.25rem;display:block">
-                Alphanumeric, spaces, hyphens and underscores only.
-              </small>
-            </div>
-
-            <div class="form-row" style="margin-bottom:var(--space-lg)">
-              <div class="form-group">
-                <label for="serverRam" class="form-label">RAM (MB)</label>
-                <input id="serverRam" type="number" placeholder="1024"
-                       class="form-input" value="1024" min="256" max="12288" step="256" />
-              </div>
-              <div class="form-group">
-                <label for="serverVersion" class="form-label">Version</label>
-                <select id="serverVersion" class="form-input form-select">
-                  <option value="latest">Latest (1.21)</option>
-                  <option value="1.20.4">1.20.4</option>
-                  <option value="1.20">1.20</option>
-                  <option value="1.19.4">1.19.4</option>
-                  <option value="1.19">1.19</option>
-                  <option value="1.18.2">1.18.2</option>
-                  <option value="1.16.5">1.16.5</option>
-                  <option value="1.12.2">1.12.2</option>
-                  <option value="1.8.9">1.8.9</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-actions">
-              <button class="btn btn-primary btn-lg" id="createServerBtn" aria-label="Create server">
-                <span class="btn-icon" aria-hidden="true">🚀</span>
-                Launch Server!
-              </button>
-            </div>
-          </div>
-
-          <!-- Preset info box -->
-          <div id="presetInfoBox" style="padding:var(--space-lg);background:rgba(80,200,120,.07);border:1px solid var(--color-border);border-radius:var(--radius-lg)">
-            <strong style="color:var(--color-primary)">🌲 Survival Mode</strong>
-            <p style="margin-top:.5rem;color:var(--color-text-muted);font-size:.9rem">
-              Classic Survival with PvP enabled. Perfect for small friend groups. Includes auto-restart and nightly backups.
-            </p>
-          </div>
-
-        </section>
-      </div><!-- /page-create -->
-
-      <!-- ─────────────────────────────────────────────────────────────────────
-           PAGE: LIVE CONSOLE
-           ───────────────────────────────────────────────────────────────────── -->
-      <div class="page-section" id="page-console">
-        <section class="section-card glass-effect">
-          <div class="section-header">
-            <h2>⌨️ Live Console</h2>
-            <div class="console-status">
-              <span class="status-badge" id="consoleStatus" aria-live="polite">Idle</span>
-              <span class="latency-badge" id="consolePing" aria-live="polite">—</span>
-            </div>
-          </div>
-
-          <div class="console-output" id="consoleOutput"
-               role="log" aria-label="Server console output" aria-live="polite">
-            <div class="console-welcome">
-              <div class="console-line">🎮 Welcome to TrashFreeHosting Console</div>
-              <div class="console-line" style="opacity:.6">   Select a server from the dashboard to begin.</div>
-            </div>
-          </div>
-
-          <div class="console-input-group">
-            <label for="consoleInput" class="sr-only">Console command</label>
-            <input id="consoleInput" type="text"
-                   placeholder="Type a command… (↑↓ for history)"
-                   class="console-input" autocomplete="off" spellcheck="false" />
-            <button class="btn btn-primary" id="sendCommandBtn" aria-label="Send command">
-              Send
-            </button>
-          </div>
-
-          <div class="console-footer">
-            <button class="console-action-btn" id="clearConsoleBtn">Clear</button>
-            <button class="console-action-btn" id="copyConsoleBtn">Copy</button>
-            <label class="console-checkbox">
-              <input type="checkbox" id="autoScrollCheckbox" checked />
-              <span>Auto-scroll</span>
-            </label>
-            <span id="selectedServerLabel"
-                  style="margin-left:auto;font-size:.8rem;color:var(--color-text-muted)">
-              No server selected
-            </span>
-          </div>
-        </section>
-      </div><!-- /page-console -->
-
-      <!-- ─────────────────────────────────────────────────────────────────────
-           PAGE: ADMIN PANEL
-           ───────────────────────────────────────────────────────────────────── -->
-      <div class="page-section" id="page-admin">
-
-        <!-- Admin tab bar -->
-        <div class="admin-tabs" role="tablist" aria-label="Admin sections">
-          <button class="admin-tab active" data-admin-tab="metrics" role="tab" aria-selected="true">📊 System Metrics</button>
-          <button class="admin-tab" data-admin-tab="servers"  role="tab" aria-selected="false">🖥️ All Servers</button>
-          <button class="admin-tab" data-admin-tab="users"    role="tab" aria-selected="false">👥 Users</button>
-        </div>
-
-        <!-- SUB: Metrics -->
-        <div class="admin-sub-section active" id="admin-metrics" role="tabpanel">
-
-          <div class="admin-metrics-grid" id="adminMetricsGrid">
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">CPU Usage</div>
-              <div class="metric-value" id="metricCpu">—</div>
-              <div class="metric-sub"  id="metricCpuSub">Calculating…</div>
-              <div class="metric-bar"><div class="metric-bar-fill green" id="metricCpuBar" style="width:0%"></div></div>
-            </div>
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">Memory</div>
-              <div class="metric-value" id="metricMem">—</div>
-              <div class="metric-sub"  id="metricMemSub">Calculating…</div>
-              <div class="metric-bar"><div class="metric-bar-fill blue" id="metricMemBar" style="width:0%"></div></div>
-            </div>
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">Disk Usage</div>
-              <div class="metric-value" id="metricDisk">—</div>
-              <div class="metric-sub"  id="metricDiskSub">Calculating…</div>
-              <div class="metric-bar"><div class="metric-bar-fill yellow" id="metricDiskBar" style="width:0%"></div></div>
-            </div>
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">Active Connections</div>
-              <div class="metric-value" id="metricConn">—</div>
-              <div class="metric-sub"  id="metricConnSub">Users online</div>
-              <div class="metric-bar"><div class="metric-bar-fill green" id="metricConnBar" style="width:0%"></div></div>
-            </div>
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">Total Servers</div>
-              <div class="metric-value" id="metricServers">—</div>
-              <div class="metric-sub"  id="metricServersSub">Across all users</div>
-              <div class="metric-bar"><div class="metric-bar-fill blue" id="metricServersBar" style="width:0%"></div></div>
-            </div>
-
-            <div class="metric-card glass-effect">
-              <div class="metric-label">Uptime</div>
-              <div class="metric-value" id="metricUptime">—</div>
-              <div class="metric-sub">Panel availability</div>
-              <div class="metric-bar"><div class="metric-bar-fill green" style="width:99%"></div></div>
-            </div>
-
-          </div>
-
-          <!-- Activity chart -->
-          <section class="section-card glass-effect">
-            <div class="section-header">
-              <h2>📈 Server Activity (Last 24h)</h2>
-            </div>
-            <div id="activityChart"
-                 style="height:120px;display:flex;align-items:flex-end;gap:4px;padding:1rem"
-                 role="img" aria-label="Server activity bar chart"></div>
-          </section>
-
-        </div><!-- /admin-metrics -->
-
-        <!-- SUB: All Servers -->
-        <div class="admin-sub-section" id="admin-servers" role="tabpanel">
-          <section class="section-card glass-effect">
-            <div class="section-header">
-              <h2>🖥️ All User Servers</h2>
-              <button class="btn btn-secondary" id="adminRefreshServers"
-                      style="padding:.4rem .8rem;font-size:.8rem">↺ Refresh</button>
-            </div>
-            <div class="admin-table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Server Name</th>
-                    <th scope="col">Owner</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">RAM</th>
-                    <th scope="col">Players</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="adminServersTableBody">
-                  <tr>
-                    <td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
-                      Loading servers…
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div><!-- /admin-servers -->
-
-        <!-- SUB: Users -->
-        <div class="admin-sub-section" id="admin-users" role="tabpanel">
-          <section class="section-card glass-effect">
-            <div class="section-header">
-              <h2>👥 User Management</h2>
-              <button class="btn btn-secondary" id="adminRefreshUsers"
-                      style="padding:.4rem .8rem;font-size:.8rem">↺ Refresh</button>
-            </div>
-            <div class="admin-table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Username</th>
-                    <th scope="col">Email</th>
-                    <th scope="col">Servers</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Joined</th>
-                    <th scope="col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="adminUsersTableBody">
-                  <tr>
-                    <td colspan="6" style="text-align:center;padding:2rem;color:var(--color-text-muted)">
-                      Loading users…
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div><!-- /admin-users -->
-
-      </div><!-- /page-admin -->
-
-    </main><!-- /main-content -->
-
-  </div><!-- /app-shell -->
-
-  <!-- ── Loading overlay ──────────────────────────────────────────────────── -->
-  <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="assertive">
-    <div class="loader">
-      <div class="loader-spinner" aria-hidden="true"></div>
-      <p id="loaderText">Loading…</p>
+  <div class="hero">
+    <div class="hero-badge">✨ 100% Free · No credit card · No email needed</div>
+    <h1 class="hero-title">Free Minecraft<br/><span class="grad-text">Hosting</span> that slaps</h1>
+    <p class="hero-sub">3 GB RAM · Instant setup · Earn coins · 24/7 uptime queue<br/>Built for kids, beginners &amp; everyone in between 🎮</p>
+    <div class="hero-btns">
+      <button class="btn-main pulse-anim" id="heroGetStarted">Get my free server 🚀</button>
+      <button class="btn-ghost" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">See how it works ↓</button>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><span class="hstat-n">3 GB</span><span class="hstat-l">RAM Free</span></div>
+      <div class="hstat-sep"></div>
+      <div class="hstat"><span class="hstat-n">24/7</span><span class="hstat-l">Uptime Queue</span></div>
+      <div class="hstat-sep"></div>
+      <div class="hstat"><span class="hstat-n">0₹</span><span class="hstat-l">Cost forever</span></div>
+      <div class="hstat-sep"></div>
+      <div class="hstat"><span class="hstat-n">🪙</span><span class="hstat-l">Earn BlockCoins</span></div>
     </div>
   </div>
 
-  <!-- ── Accessibility: screen-reader only utility class ──────────────────── -->
-  <style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}</style>
+  <!-- AD BANNER -->
+  <div class="ad-slot-banner">
+    <div class="ad-label">Advertisement</div>
+    <div class="ad-placeholder">📢 Your ad here — <a href="mailto:ads@blockpulse.app">Advertise on BlockPulse</a></div>
+  </div>
 
-  <!-- Main script — after DOM, after Socket.IO CDN -->
-  <script src="script.js"></script>
+  <div class="section-wrap" id="features">
+    <h2 class="section-title">Why BlockPulse hits different</h2>
+    <div class="feat-grid">
+      <div class="feat-card glass">
+        <div class="feat-icon">🪙</div>
+        <h3>BlockCoins System</h3>
+        <p>Earn coins by playing mini-games, completing tasks &amp; watching ads. Spend them to keep your server online 24/7.</p>
+      </div>
+      <div class="feat-card glass">
+        <div class="feat-icon">⚡</div>
+        <h3>Instant Setup</h3>
+        <p>No config files. No port forwarding. Server live in under 30 seconds. Simpler than Aternos.</p>
+      </div>
+      <div class="feat-card glass">
+        <div class="feat-icon">📋</div>
+        <h3>24/7 Queue System</h3>
+        <p>Use BlockCoins to stay in the uptime queue. Your server stays alive even when you sleep.</p>
+      </div>
+      <div class="feat-card glass">
+        <div class="feat-icon">🎮</div>
+        <h3>Mini Games</h3>
+        <p>Play BlockMiner, Spin Wheel &amp; MC Quiz to earn extra coins. The more you play, the longer your server runs.</p>
+      </div>
+      <div class="feat-card glass">
+        <div class="feat-icon">🏆</div>
+        <h3>Leaderboards</h3>
+        <p>Compete with other players. Top users every week get free premium perks.</p>
+      </div>
+      <div class="feat-card glass">
+        <div class="feat-icon">👫</div>
+        <h3>Refer &amp; Earn</h3>
+        <p>Invite friends and both of you get 100 BlockCoins. More friends = more uptime = more gaming.</p>
+      </div>
+    </div>
+  </div>
 
+  <div class="section-wrap" id="howto">
+    <h2 class="section-title">How it works in 4 steps</h2>
+    <div class="steps-row">
+      <div class="step glass">
+        <div class="step-n">1</div>
+        <h3>Pick a username</h3>
+        <p>No email. No password. Just a username and you're in.</p>
+      </div>
+      <div class="step-arr">→</div>
+      <div class="step glass">
+        <div class="step-n">2</div>
+        <h3>Create server</h3>
+        <p>Choose name &amp; version. Server ready in 30 seconds.</p>
+      </div>
+      <div class="step-arr">→</div>
+      <div class="step glass">
+        <div class="step-n">3</div>
+        <h3>Earn BlockCoins</h3>
+        <p>Play games, do tasks, watch ads to earn coins.</p>
+      </div>
+      <div class="step-arr">→</div>
+      <div class="step glass">
+        <div class="step-n">4</div>
+        <h3>Stay online 24/7</h3>
+        <p>Spend coins to stay in the uptime queue forever.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="land-footer">
+    <div class="logo-mark">⛏ BlockPulse</div>
+    <p>Free Minecraft hosting powered by BlockCoins</p>
+    <p class="footer-small">Not affiliated with Mojang or Microsoft. Minecraft™ is a trademark of Mojang Studios.</p>
+  </footer>
+</section>
+
+<!-- ══ LOGIN ══ -->
+<section id="loginPage" class="page-layer">
+  <div class="login-wrap">
+    <div class="login-card glass">
+      <div class="login-top">
+        <div class="login-icon">⛏</div>
+        <h2>Join BlockPulse</h2>
+        <p>Pick a username to get started — no email needed!</p>
+      </div>
+      <label class="fl">Your Username</label>
+      <input id="loginUsername" type="text" class="fi" placeholder="CoolMiner2024" maxlength="20" autocomplete="off"/>
+      <p class="fi-hint">Letters, numbers &amp; underscores only (3-20 chars)</p>
+      <button class="btn-main w100" id="loginBtn">Enter BlockPulse 🚀</button>
+      <button class="btn-ghost w100" style="margin-top:8px" id="loginBack">← Back</button>
+      <div class="login-bonus glass-inner">🎁 <strong>+100 BlockCoins</strong> welcome bonus — just for joining!</div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ DASHBOARD ══ -->
+<section id="dashboardPage" class="page-layer">
+  <div class="app-wrap">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar glass" id="sidebar">
+      <div class="sb-brand">⛏ BlockPulse</div>
+      <div class="sb-user" id="sbUser">
+        <div class="sb-avatar" id="sbAvatar">?</div>
+        <div class="sb-info">
+          <div class="sb-name" id="sbName">Player</div>
+          <div class="sb-coins" id="sbCoins">🪙 0 coins</div>
+        </div>
+      </div>
+      <nav class="sb-nav">
+        <button class="sb-item active" data-page="home">🏠 <span>Home</span></button>
+        <button class="sb-item" data-page="servers">🖥️ <span>My Servers</span></button>
+        <button class="sb-item" data-page="create">⚡ <span>New Server</span></button>
+        <button class="sb-item" data-page="console">📟 <span>Console</span></button>
+        <button class="sb-item" data-page="coins">🪙 <span>Earn Coins</span></button>
+        <button class="sb-item" data-page="games">🎮 <span>Mini Games</span></button>
+        <button class="sb-item" data-page="tasks">✅ <span>Daily Tasks</span></button>
+        <button class="sb-item" data-page="leaderboard">🏆 <span>Leaderboard</span></button>
+        <button class="sb-item" data-page="queue">📋 <span>24/7 Queue</span></button>
+      </nav>
+      <div class="sb-bottom">
+        <div class="conn-pill" id="connPill"><span class="conn-dot" id="connDot"></span><span id="connText">Connecting…</span></div>
+        <button class="sb-logout" id="logoutBtn">← Logout</button>
+      </div>
+    </aside>
+
+    <!-- MOBILE TOP BAR -->
+    <div class="mobile-bar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <span class="mobile-brand">⛏ BP</span>
+      <span class="mobile-coins" id="mobileCoins">🪙 0</span>
+    </div>
+
+    <main class="main-area">
+
+      <!-- HOME -->
+      <div class="dash-page active" id="page-home">
+        <div class="page-hdr">
+          <h1 id="homeGreeting">Hey there 👋</h1>
+          <p class="ph-sub">Welcome back to BlockPulse</p>
+        </div>
+        <div class="ad-slot-inline"><span class="ad-label">Ad</span><div class="ad-placeholder-sm">Advertisement — <a href="#">Advertise here</a></div></div>
+        <div class="daily-banner glass" id="dailyBanner">
+          <div class="db-left">🎁 <div><strong>Daily Login Bonus!</strong><div class="db-sub">Claim your free coins</div></div></div>
+          <button class="btn-coin" id="claimDailyBtn">+50 🪙 Claim!</button>
+        </div>
+        <div class="stats-row">
+          <div class="sc glass"><div class="sc-ic">🖥️</div><div class="sc-v" id="stServers">0</div><div class="sc-l">Servers</div></div>
+          <div class="sc glass"><div class="sc-ic">🪙</div><div class="sc-v" id="stCoins">0</div><div class="sc-l">BlockCoins</div></div>
+          <div class="sc glass"><div class="sc-ic">🔥</div><div class="sc-v" id="stStreak">0</div><div class="sc-l">Day Streak</div></div>
+          <div class="sc glass"><div class="sc-ic">🏆</div><div class="sc-v" id="stRank">#—</div><div class="sc-l">Rank</div></div>
+        </div>
+        <div class="qa-grid">
+          <button class="qa-btn glass" data-page="create">🚀<span>New Server</span></button>
+          <button class="qa-btn glass" data-page="coins">💰<span>Earn Coins</span></button>
+          <button class="qa-btn glass" data-page="games">🎮<span>Play Games</span></button>
+          <button class="qa-btn glass" data-page="queue">⏰<span>24/7 Queue</span></button>
+          <button class="qa-btn glass" data-page="tasks">✅<span>Daily Tasks</span></button>
+          <button class="qa-btn glass" data-page="leaderboard">🏆<span>Leaderboard</span></button>
+        </div>
+        <div class="glass section-box">
+          <div class="sb-hdr"><h3>🖥️ Your Servers</h3><button class="btn-sm" id="homeRefresh">↺</button></div>
+          <div id="homeServerList"><div class="empty-msg">No servers yet — create one free! ⚡</div></div>
+        </div>
+      </div>
+
+      <!-- SERVERS -->
+      <div class="dash-page" id="page-servers">
+        <div class="page-hdr">
+          <h1>🖥️ My Servers</h1>
+          <button class="btn-pill" data-page="create">+ New Server</button>
+        </div>
+        <div class="server-grid" id="serverGrid"><div class="empty-msg">No servers yet 🚀</div></div>
+      </div>
+
+      <!-- CREATE -->
+      <div class="dash-page" id="page-create">
+        <div class="page-hdr"><h1>⚡ Create Server</h1><p class="ph-sub">3 GB RAM · Free forever</p></div>
+        <div class="create-box glass">
+          <div class="preset-section">
+            <label class="fl">1. Choose server type</label>
+            <div class="preset-row" id="presetRow">
+              <button class="preset active" data-p="survival">🌲<span>Survival</span></button>
+              <button class="preset" data-p="pvp">⚔️<span>PvP</span></button>
+              <button class="preset" data-p="skyblock">🏝️<span>Skyblock</span></button>
+              <button class="preset" data-p="creative">🎨<span>Creative</span></button>
+              <button class="preset" data-p="minigames">🎯<span>Minigames</span></button>
+              <button class="preset" data-p="custom">🔧<span>Custom</span></button>
+            </div>
+          </div>
+          <div class="fields-section">
+            <label class="fl">2. Server details</label>
+            <div class="fields-row">
+              <div class="fg"><label class="fl-sm">Name</label><input id="srvName" type="text" class="fi" placeholder="My Epic Server" maxlength="32"/></div>
+              <div class="fg"><label class="fl-sm">Version</label><select id="srvVersion" class="fi"><option>Latest (1.21)</option><option>1.20.4</option><option>1.20</option><option>1.19.4</option><option>1.16.5</option><option>1.12.2</option><option>1.8.9</option></select></div>
+              <div class="fg"><label class="fl-sm">RAM (MB)</label><input id="srvRam" type="number" class="fi" value="1024" min="512" max="3072" step="256"/><span class="fi-hint">Max 3072 MB free</span></div>
+            </div>
+          </div>
+          <div class="preset-info glass-inner" id="presetInfo">🌲 Classic Survival with PvP. Perfect for friends.</div>
+          <button class="btn-main" id="createServerBtn">🚀 Launch Server!</button>
+        </div>
+      </div>
+
+      <!-- CONSOLE -->
+      <div class="dash-page" id="page-console">
+        <div class="page-hdr">
+          <h1>📟 Live Console</h1>
+          <div class="console-chips"><span class="chip" id="consoleChip">Idle</span><span class="chip cyan" id="latencyChip">—ms</span><span class="chip-name" id="consoleSrvName">No server</span></div>
+        </div>
+        <div class="console-wrap glass">
+          <div class="console-out" id="consoleOut" role="log">
+            <div class="cw-line">████████████████████████</div>
+            <div class="cw-line">⛏  BlockPulse Live Console</div>
+            <div class="cw-line">Select a server to connect</div>
+            <div class="cw-line">████████████████████████</div>
+          </div>
+          <div class="cin-row">
+            <span class="cprompt">❯</span>
+            <input id="consoleInput" class="cin" type="text" placeholder="Type command… (Enter)" autocomplete="off" spellcheck="false"/>
+            <button class="btn-pill" id="consoleSend">Send</button>
+          </div>
+          <div class="cbar">
+            <button class="cb" id="consoleClear">Clear</button>
+            <button class="cb" id="consoleCopy">Copy</button>
+            <label class="cb-check"><input type="checkbox" id="autoScroll" checked/> Auto-scroll</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- EARN COINS -->
+      <div class="dash-page" id="page-coins">
+        <div class="page-hdr"><h1>🪙 Earn BlockCoins</h1><p class="ph-sub">Coins keep your server online 24/7</p></div>
+        <div class="coin-balance glass">
+          <div class="cb-big">🪙 <span id="bigCoinCount">0</span></div>
+          <div class="cb-sub">BlockCoins · Never expire</div>
+          <div class="cb-uses">
+            <span class="cu-tag">🔋 24/7 Queue: 10/hr</span>
+            <span class="cu-tag">⚡ Skip Queue: 50</span>
+            <span class="cu-tag">💾 +RAM Boost: 200</span>
+          </div>
+        </div>
+        <div class="earn-grid">
+          <div class="earn-card glass">
+            <div class="ec-ic">📺</div><h3>Watch Ad</h3><p>Watch a short ad and earn coins instantly</p>
+            <div class="ec-rew">+20 🪙</div>
+            <button class="btn-pill" id="watchAdBtn">Watch Now</button>
+            <div class="ec-cd" id="adCooldown"></div>
+          </div>
+          <div class="earn-card glass">
+            <div class="ec-ic">📅</div><h3>Daily Login</h3><p>Log in every day to maintain your streak</p>
+            <div class="ec-rew">+50 🪙</div>
+            <button class="btn-pill" id="claimDailyBtn2">Claim Today</button>
+          </div>
+          <div class="earn-card glass">
+            <div class="ec-ic">👥</div><h3>Invite Friends</h3><p>Get 100 coins for each friend who joins</p>
+            <div class="ec-rew">+100 🪙 each</div>
+            <button class="btn-pill" id="copyReferralBtn">Copy Link 🔗</button>
+          </div>
+          <div class="earn-card glass">
+            <div class="ec-ic">🎮</div><h3>Mini Games</h3><p>Win BlockMiner, Spin &amp; Quiz for coins</p>
+            <div class="ec-rew">Up to +500 🪙</div>
+            <button class="btn-pill" data-page="games">Play Now →</button>
+          </div>
+          <div class="earn-card glass">
+            <div class="ec-ic">✅</div><h3>Daily Tasks</h3><p>Complete simple tasks for bonus coins daily</p>
+            <div class="ec-rew">+150 🪙/day</div>
+            <button class="btn-pill" data-page="tasks">View Tasks →</button>
+          </div>
+          <div class="earn-card glass">
+            <div class="ec-ic">🎁</div><h3>7-Day Streak</h3><p>Log in 7 days in a row for a massive bonus</p>
+            <div class="ec-rew">+500 🪙 day 7</div>
+            <div class="streak-dots" id="streakDots"></div>
+          </div>
+        </div>
+        <div class="ad-slot-inline mt16"><span class="ad-label">Ad</span><div class="ad-placeholder-sm">Advertisement</div></div>
+      </div>
+
+      <!-- MINI GAMES -->
+      <div class="dash-page" id="page-games">
+        <div class="page-hdr"><h1>🎮 Mini Games</h1><p class="ph-sub">Play to earn BlockCoins</p></div>
+        <div class="game-tabs">
+          <button class="gtab active" data-game="miner">⛏ BlockMiner</button>
+          <button class="gtab" data-game="spin">🎰 Spin Wheel</button>
+          <button class="gtab" data-game="quiz">❓ MC Quiz</button>
+        </div>
+
+        <!-- BLOCKMINER -->
+        <div class="game-panel active" id="game-miner">
+          <div class="game-card glass">
+            <div class="miner-hdr">
+              <span>Score: <b id="minerScore">0</b></span>
+              <span>⏱ <b id="minerTime">30</b>s</span>
+              <span>Win: <b id="minerReward">0</b> 🪙</span>
+            </div>
+            <div class="miner-area">
+              <button class="miner-block" id="minerBlock" disabled>
+                <div class="mb-inner">
+                  <span id="blockEmoji">🪨</span>
+                  <div class="mb-bar-wrap"><div class="mb-bar" id="blockBar" style="width:100%"></div></div>
+                </div>
+              </button>
+              <div class="combo-text" id="comboText"></div>
+            </div>
+            <button class="btn-main" id="minerStart">⛏ Start Mining!</button>
+          </div>
+          <div class="game-rules glass-inner"><b>How to play:</b> Click the block fast! Break it to get a new one. 5+ combo = multiplier bonus. Top score = more coins!</div>
+        </div>
+
+        <!-- SPIN WHEEL -->
+        <div class="game-panel" id="game-spin">
+          <div class="game-card glass">
+            <div class="spin-cd" id="spinCooldown"></div>
+            <div class="wheel-wrap">
+              <div class="wheel-ptr">▼</div>
+              <canvas id="spinWheel" width="300" height="300"></canvas>
+            </div>
+            <button class="btn-main" id="spinBtn">🎰 Spin for Free!</button>
+            <div class="spin-result" id="spinResult"></div>
+          </div>
+          <div class="game-rules glass-inner"><b>How to play:</b> Free spin every 4 hours. Win coins, RAM boosts, or the jackpot! Extra spins cost 20 coins.</div>
+        </div>
+
+        <!-- QUIZ -->
+        <div class="game-panel" id="game-quiz">
+          <div class="game-card glass">
+            <div id="quizIntro">
+              <div style="font-size:3rem;text-align:center">❓</div>
+              <h3 style="text-align:center">Minecraft Quiz</h3>
+              <p style="text-align:center;opacity:.7">10 questions · 30s each · Earn up to 100 coins</p>
+              <button class="btn-main w100" id="startQuiz">Start Quiz!</button>
+            </div>
+            <div id="quizGame" class="hidden">
+              <div class="qhdr">
+                <span id="qProg">Q 1/10</span>
+                <span class="qtimer" id="qTimer">30</span>
+                <span>🪙 <span id="qLive">0</span></span>
+              </div>
+              <div class="qtext" id="qText">Loading…</div>
+              <div class="qopts" id="qOpts"></div>
+            </div>
+            <div id="quizResult" class="hidden qresult">
+              <div style="font-size:3rem;text-align:center">🎉</div>
+              <div class="qr-big">+<span id="qrCoins">0</span> 🪙</div>
+              <div style="text-align:center;opacity:.7">Correct: <span id="qrCorrect">0</span>/10</div>
+              <button class="btn-main w100" id="quizRetry">Play Again</button>
+            </div>
+          </div>
+          <div class="game-rules glass-inner"><b>How to play:</b> Answer Minecraft trivia questions. Each correct answer = 10 coins. Streak bonus for 5+ in a row!</div>
+        </div>
+      </div>
+
+      <!-- DAILY TASKS -->
+      <div class="dash-page" id="page-tasks">
+        <div class="page-hdr"><h1>✅ Daily Tasks</h1><p class="ph-sub">Resets every day at midnight · All progress saved</p></div>
+        <div class="tasks-list glass" id="tasksList"></div>
+        <div class="tasks-footer glass">
+          <span>Today's earnings: <b id="taskEarned">0 🪙</b></span>
+          <span>Completed: <b id="taskDone">0/0</b></span>
+        </div>
+        <div class="ad-slot-inline mt16"><span class="ad-label">Ad</span><div class="ad-placeholder-sm">Advertisement</div></div>
+      </div>
+
+      <!-- LEADERBOARD -->
+      <div class="dash-page" id="page-leaderboard">
+        <div class="page-hdr"><h1>🏆 Leaderboard</h1><p class="ph-sub">Top BlockCoin earners this week</p></div>
+        <div class="lb-tabs">
+          <button class="lbt active" data-lb="coins">🪙 Most Coins</button>
+          <button class="lbt" data-lb="streak">🔥 Streaks</button>
+          <button class="lbt" data-lb="games">🎮 Game Wins</button>
+        </div>
+        <div class="lb-table glass" id="lbTable"></div>
+        <div class="lb-myrank glass" id="lbMyRank">Your rank: Loading…</div>
+      </div>
+
+      <!-- 24/7 QUEUE -->
+      <div class="dash-page" id="page-queue">
+        <div class="page-hdr"><h1>📋 24/7 Queue</h1><p class="ph-sub">Keep your server online around the clock</p></div>
+        <div class="queue-stats glass">
+          <div class="qs-box"><div class="qs-n" id="qPos">—</div><div class="qs-l">Your position</div></div>
+          <div class="qs-box"><div class="qs-n" id="qTotal">—</div><div class="qs-l">In queue</div></div>
+          <div class="qs-box"><div class="qs-n" id="qEta">—</div><div class="qs-l">Est. wait</div></div>
+          <div class="qs-box"><div class="qs-n">10 🪙</div><div class="qs-l">per hour</div></div>
+        </div>
+        <div class="queue-bar-wrap glass">
+          <div class="qb-track"><div class="qb-fill" id="qbFill" style="width:0%"></div></div>
+          <div class="qb-lbl" id="qbLbl">Queue status loading…</div>
+        </div>
+        <div class="queue-actions-row">
+          <div class="qa-card glass">
+            <h3>🔋 Join 24/7 Queue</h3>
+            <p>Server stays online even when you're offline. Costs 10 coins/hour from your balance.</p>
+            <select id="qSrvSelect" class="fi" style="margin-bottom:12px"></select>
+            <button class="btn-main" id="joinQueueBtn">Join Queue (-10 🪙/hr)</button>
+          </div>
+          <div class="qa-card glass">
+            <h3>⚡ Skip Queue</h3>
+            <p>Jump to front instantly. Your server goes online right now. Spend 50 BlockCoins.</p>
+            <div class="skip-cost">Cost: 50 🪙</div>
+            <button class="btn-pill" id="skipQueueBtn">Skip Queue (-50 🪙)</button>
+          </div>
+        </div>
+        <div class="ad-slot-inline mt16"><span class="ad-label">Ad</span><div class="ad-placeholder-sm">Advertisement</div></div>
+      </div>
+
+    </main>
+  </div>
+</section>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal glass" id="modal">
+    <button class="modal-x" id="modalClose">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-screen hidden" id="loadingScreen">
+  <div class="ls-box">
+    <div class="ls-spin"></div>
+    <div id="lsText">Loading…</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>
