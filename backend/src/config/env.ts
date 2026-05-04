@@ -17,6 +17,7 @@ const envSchema = z.object({
   MONGODB_DB: z.string().min(1).optional(),
   ADMIN_USERNAME: z.string().min(1).optional(),
   ADMIN_PASSWORD: z.string().min(1).optional(),
+  CAPTCHA_TOKEN: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.parse(process.env);

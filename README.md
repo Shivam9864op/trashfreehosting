@@ -22,3 +22,4 @@ Admin metrics and login/register tracking require MongoDB plus admin credentials
 
 - `MONGODB_URI`, `MONGODB_DB`
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`
+- `CAPTCHA_TOKEN` (optional) — if set, update the `captcha-token` meta tag in `index.html` to match

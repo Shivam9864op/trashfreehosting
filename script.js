@@ -5,7 +5,7 @@
 
 const API_BASE   = 'https://hosting.trashmcpe.com/backend/api';
 const SOCKET_URL = 'https://hosting.trashmcpe.com';
-const CAPTCHA_TOKEN = document.querySelector('meta[name="captcha-token"]')?.getAttribute('content') || 'trash-hosting';
+const CAPTCHA_TOKEN = document.querySelector('meta[name="captcha-token"]')?.getAttribute('content') || '';
 
 /* ─── QUIZ QUESTIONS ─── */
 const QUIZ_QUESTIONS = [
@@ -169,7 +169,7 @@ async function apiFetch(path, opts={}, attempt=0) {
   try {
     const method = (opts.method||'GET').toUpperCase();
     const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
-    if(['POST','PUT','PATCH','DELETE'].includes(method) && !headers['x-captcha-token']) {
+    if(['POST','PUT','PATCH','DELETE'].includes(method) && CAPTCHA_TOKEN && !headers['x-captcha-token']) {
       headers['x-captcha-token'] = CAPTCHA_TOKEN;
     }
     const r = await fetch(url, {
