@@ -1,4 +1,4 @@
-# BlockPulse — AI Powered Free Minecraft Hosting
+# Trash Hosting — AI Powered Free Minecraft Hosting
 
 Futuristic Gen-Z style landing page and dashboard concept for an AI-powered free
 Minecraft hosting platform. The experience is designed to feel premium,
@@ -15,3 +15,11 @@ community-driven, and instantly addictive with neon cyberpunk aesthetics.
 ## Run locally
 
 Open `index.html` in your browser.
+
+## Backend environment
+
+Admin metrics and login/register tracking require MongoDB plus admin credentials:
+
+- `MONGODB_URI`, `MONGODB_DB`
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD`
+- `CAPTCHA_TOKEN` (optional) — if set, update the `captcha-token` meta tag in `index.html` to match

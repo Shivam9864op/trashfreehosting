@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>BlockPulse — Free Minecraft Hosting</title>
+  <title>Trash Hosting — Free Minecraft Hosting</title>
   <meta name="description" content="Free Minecraft server hosting. No credit card. No BS. Just vibes."/>
+  <meta name="captcha-token" content=""/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css"/>
@@ -24,7 +25,7 @@
 <!-- ══ LANDING ══ -->
 <section id="landingPage" class="page-layer active">
   <nav class="land-nav">
-    <div class="logo-mark">⛏ BlockPulse</div>
+    <div class="logo-mark">⛏ Trash Hosting</div>
     <div class="nav-links">
       <a href="#features">Features</a>
       <a href="#howto">How it works</a>
@@ -53,13 +54,18 @@
   </div>
 
   <!-- AD BANNER -->
-  <div class="ad-slot-banner">
+    <div class="mob-runner" aria-hidden="true">
+      <span>🧟</span>
+      <span>🐑</span>
+      <span>🐺</span>
+    </div>
+    <div class="ad-slot-banner">
     <div class="ad-label">Advertisement</div>
-    <div class="ad-placeholder">📢 Your ad here — <a href="mailto:ads@blockpulse.app">Advertise on BlockPulse</a></div>
+    <div class="ad-placeholder">📢 Your ad here — <a href="mailto:ads@trashhosting.app">Advertise on Trash Hosting</a></div>
   </div>
 
   <div class="section-wrap" id="features">
-    <h2 class="section-title">Why BlockPulse hits different</h2>
+    <h2 class="section-title">Why Trash Hosting hits different</h2>
     <div class="feat-grid">
       <div class="feat-card glass">
         <div class="feat-icon">🪙</div>
@@ -124,7 +130,7 @@
   </div>
 
   <footer class="land-footer">
-    <div class="logo-mark">⛏ BlockPulse</div>
+    <div class="logo-mark">⛏ Trash Hosting</div>
     <p>Free Minecraft hosting powered by BlockCoins</p>
     <p class="footer-small">Not affiliated with Mojang or Microsoft. Minecraft™ is a trademark of Mojang Studios.</p>
   </footer>
@@ -136,13 +142,14 @@
     <div class="login-card glass">
       <div class="login-top">
         <div class="login-icon">⛏</div>
-        <h2>Join BlockPulse</h2>
+        <h2>Join Trash Hosting</h2>
         <p>Pick a username to get started — no email needed!</p>
       </div>
       <label class="fl">Your Username</label>
       <input id="loginUsername" type="text" class="fi" placeholder="CoolMiner2024" maxlength="20" autocomplete="off"/>
       <p class="fi-hint">Letters, numbers &amp; underscores only (3-20 chars)</p>
-      <button class="btn-main w100" id="loginBtn">Enter BlockPulse 🚀</button>
+      <button class="btn-main w100" id="loginBtn">Enter Trash Hosting 🚀</button>
+      <button class="btn-ghost w100 admin-link" style="margin-top:8px" id="adminLoginLink">Admin access →</button>
       <button class="btn-ghost w100" style="margin-top:8px" id="loginBack">← Back</button>
       <div class="login-bonus glass-inner">🎁 <strong>+100 BlockCoins</strong> welcome bonus — just for joining!</div>
     </div>
@@ -155,7 +162,7 @@
 
     <!-- SIDEBAR -->
     <aside class="sidebar glass" id="sidebar">
-      <div class="sb-brand">⛏ BlockPulse</div>
+      <div class="sb-brand">⛏ Trash Hosting</div>
       <div class="sb-user" id="sbUser">
         <div class="sb-avatar" id="sbAvatar">?</div>
         <div class="sb-info">
@@ -183,7 +190,7 @@
     <!-- MOBILE TOP BAR -->
     <div class="mobile-bar">
       <button class="hamburger" id="hamburger">☰</button>
-      <span class="mobile-brand">⛏ BP</span>
+      <span class="mobile-brand">⛏ TH</span>
       <span class="mobile-coins" id="mobileCoins">🪙 0</span>
     </div>
 
@@ -193,7 +200,7 @@
       <div class="dash-page active" id="page-home">
         <div class="page-hdr">
           <h1 id="homeGreeting">Hey there 👋</h1>
-          <p class="ph-sub">Welcome back to BlockPulse</p>
+          <p class="ph-sub">Welcome back to Trash Hosting</p>
         </div>
         <div class="ad-slot-inline"><span class="ad-label">Ad</span><div class="ad-placeholder-sm">Advertisement — <a href="#">Advertise here</a></div></div>
         <div class="daily-banner glass" id="dailyBanner">
@@ -249,7 +256,7 @@
             <div class="fields-row">
               <div class="fg"><label class="fl-sm">Name</label><input id="srvName" type="text" class="fi" placeholder="My Epic Server" maxlength="32"/></div>
               <div class="fg"><label class="fl-sm">Version</label><select id="srvVersion" class="fi"><option>Latest (1.21)</option><option>1.20.4</option><option>1.20</option><option>1.19.4</option><option>1.16.5</option><option>1.12.2</option><option>1.8.9</option></select></div>
-              <div class="fg"><label class="fl-sm">RAM (MB)</label><input id="srvRam" type="number" class="fi" value="1024" min="512" max="3072" step="256"/><span class="fi-hint">Max 3072 MB free</span></div>
+              <div class="fg"><label class="fl-sm">RAM (MB)</label><input id="srvRam" type="number" class="fi" value="1024" min="1024" max="3072" step="256"/><span class="fi-hint">Max 3072 MB free</span></div>
             </div>
           </div>
           <div class="preset-info glass-inner" id="presetInfo">🌲 Classic Survival with PvP. Perfect for friends.</div>
@@ -266,7 +273,7 @@
         <div class="console-wrap glass">
           <div class="console-out" id="consoleOut" role="log">
             <div class="cw-line">████████████████████████</div>
-            <div class="cw-line">⛏  BlockPulse Live Console</div>
+            <div class="cw-line">⛏  Trash Hosting Live Console</div>
             <div class="cw-line">Select a server to connect</div>
             <div class="cw-line">████████████████████████</div>
           </div>
@@ -459,6 +466,48 @@
       </div>
 
     </main>
+  </div>
+</section>
+
+<!-- ══ ADMIN ══ -->
+<section id="adminPage" class="page-layer">
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <div>
+        <div class="logo-mark">⛏ Trash Hosting Admin</div>
+        <p class="ph-sub">All servers, logins, and registrations in one place.</p>
+      </div>
+      <div class="admin-actions">
+        <button class="btn-sm" id="adminRefresh">↺ Refresh</button>
+        <button class="btn-ghost" id="adminLogoutBtn">Logout</button>
+      </div>
+    </div>
+    <div class="admin-metrics">
+      <div class="admin-card glass"><div class="ac-label">Total Servers</div><div class="ac-val" id="admTotalServers">0</div></div>
+      <div class="admin-card glass"><div class="ac-label">Total Users</div><div class="ac-val" id="admTotalUsers">0</div></div>
+      <div class="admin-card glass"><div class="ac-label">Logins</div><div class="ac-val" id="admTotalLogins">0</div></div>
+      <div class="admin-card glass"><div class="ac-label">Registrations</div><div class="ac-val" id="admTotalRegisters">0</div></div>
+    </div>
+    <div class="admin-grid">
+      <div class="admin-panel glass">
+        <div class="sb-hdr"><h3>Recent Logins &amp; Registrations</h3></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>User</th><th>Type</th><th>IP</th><th>When</th></tr></thead>
+            <tbody id="adminEventsTable"><tr><td colspan="4" class="empty-msg">No activity yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="admin-panel glass">
+        <div class="sb-hdr"><h3>All Servers</h3></div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>Name</th><th>ID</th><th>Status</th><th>RAM</th></tr></thead>
+            <tbody id="adminServersTable"><tr><td colspan="4" class="empty-msg">No servers yet.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 

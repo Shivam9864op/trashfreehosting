@@ -13,6 +13,11 @@ const envSchema = z.object({
   EGG_ID: z.coerce.number().int().positive(),
   USER_ID: z.coerce.number().int().positive(),
   ALLOC_ID: z.coerce.number().int().positive(),
+  MONGODB_URI: z.string().url().optional(),
+  MONGODB_DB: z.string().min(1).optional(),
+  ADMIN_USERNAME: z.string().min(1).optional(),
+  ADMIN_PASSWORD: z.string().min(1).optional(),
+  CAPTCHA_TOKEN: z.string().min(1).optional(),
 });
 
 const parsed = envSchema.parse(process.env);

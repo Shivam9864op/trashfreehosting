@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   BlockPulse — Gen Z Gaming Dashboard CSS
+   Trash Hosting — Gen Z Gaming Dashboard CSS
    Aesthetic: Cyberpunk Minecraft × Discord × TikTok
    ═══════════════════════════════════════════════ */
 
@@ -109,7 +109,7 @@ input, select, textarea { font-family:var(--f-body); }
 .nav-links a:hover { color:var(--c-text); text-decoration:none; }
 .hamburger-land { display:none; background:none; color:var(--c-text); font-size:1.4rem; }
 
-.hero { text-align:center; padding:100px 24px 80px; max-width:800px; margin:0 auto; }
+.hero { text-align:center; padding:100px 24px 80px; max-width:800px; margin:0 auto; position:relative; }
 .hero-badge { display:inline-block; background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.3); border-radius:var(--r-pill); padding:6px 16px; font-size:.85rem; color:var(--c-primary); margin-bottom:24px; }
 .hero-title { font-family:var(--f-brand); font-size:clamp(2.5rem,7vw,5rem); font-weight:800; line-height:1.1; margin-bottom:20px; }
 .grad-text { background:linear-gradient(135deg,var(--c-primary),var(--c-cyan),var(--c-purple)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
@@ -141,6 +141,17 @@ input, select, textarea { font-family:var(--f-body); }
 .land-footer { text-align:center; padding:48px 24px; border-top:1px solid var(--c-border); color:var(--c-muted); }
 .land-footer p { margin-top:8px; font-size:.9rem; }
 .footer-small { font-size:.75rem; margin-top:8px; }
+
+.mob-runner { position:relative; height:40px; margin:20px auto 0; overflow:hidden; max-width:900px; }
+.mob-runner span { display:inline-block; font-size:1.6rem; margin-right:20px; animation:mobRun 10s linear infinite; }
+.mob-runner span:nth-child(2) { animation-delay:1.5s; }
+.mob-runner span:nth-child(3) { animation-delay:3s; }
+@keyframes mobRun {
+  0% { transform:translateX(-10%); opacity:0; }
+  10% { opacity:1; }
+  50% { transform:translateX(80vw); }
+  100% { transform:translateX(110vw); opacity:0; }
+}
 
 /* ══════════════════════════════
    LOGIN PAGE
@@ -382,6 +393,23 @@ input, select, textarea { font-family:var(--f-body); }
 .qa-card p { color:var(--c-muted2); font-size:.85rem; margin-bottom:16px; line-height:1.5; }
 .skip-cost { font-family:var(--f-brand); font-weight:700; color:var(--c-yellow); margin-bottom:12px; }
 
+/* ── ADMIN ── */
+#adminPage { min-height:100vh; padding:32px 24px 60px; }
+.admin-wrap { max-width:1200px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.admin-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.admin-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.admin-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.admin-card { padding:16px; border-radius:var(--r-lg); text-align:left; }
+.ac-label { font-size:.7rem; text-transform:uppercase; letter-spacing:.6px; color:var(--c-muted); }
+.ac-val { font-family:var(--f-brand); font-size:1.6rem; font-weight:800; color:var(--c-primary); margin-top:6px; }
+.admin-grid { display:grid; grid-template-columns:1.6fr 1fr; gap:16px; }
+.admin-panel { padding:16px; border-radius:var(--r-lg); }
+.admin-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.admin-table th { text-align:left; font-size:.7rem; text-transform:uppercase; letter-spacing:.5px; color:var(--c-muted); padding:8px 6px; border-bottom:1px solid var(--c-border); }
+.admin-table td { padding:8px 6px; border-bottom:1px solid var(--c-border); color:var(--c-text); }
+.admin-table tr:last-child td { border-bottom:none; }
+.admin-table-wrap { overflow:auto; max-height:360px; }
+
 /* ── MODAL ── */
 .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(4px); }
 .modal { padding:28px; max-width:420px; width:100%; border-radius:var(--r-xl); position:relative; }
@@ -406,6 +434,7 @@ input, select, textarea { font-family:var(--f-body); }
   .queue-actions-row { grid-template-columns:1fr; }
   .fields-row { grid-template-columns:1fr; }
   .preset-row { grid-template-columns:repeat(3,1fr); }
+  .admin-grid { grid-template-columns:1fr; }
 }
 @media (max-width:768px) {
   .sidebar { position:fixed; left:-280px; z-index:200; transition:left .3s; height:100vh; overflow-y:auto; border-radius:0; }

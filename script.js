@@ -1,10 +1,11 @@
 'use strict';
 /* ═══════════════════════════════════════════
-   BlockPulse — Dashboard Script
+   Trash Hosting — Dashboard Script
    ═══════════════════════════════════════════ */
 
 const API_BASE   = 'https://hosting.trashmcpe.com/backend/api';
 const SOCKET_URL = 'https://hosting.trashmcpe.com';
+const CAPTCHA_TOKEN = document.querySelector('meta[name="captcha-token"]')?.getAttribute('content') || '';
 
 /* ─── QUIZ QUESTIONS ─── */
 const QUIZ_QUESTIONS = [
@@ -66,6 +67,8 @@ const TASKS_CONFIG = [
 ════════════════════════════ */
 const S = {
   user:        null,   // { name, coins, streak, lastLogin, tasks, spinLastUsed, adLastUsed, referralCode }
+  admin:       null,   // { username, authHeader }
+  adminMetrics:null,
   servers:     [],
   selectedSrv: null,
   socket:      null,
@@ -146,6 +149,11 @@ function showModal(html) { $('modal').querySelector('#modalBody').innerHTML=html
 function hideModal() { $('modalOverlay').classList.add('hidden'); }
 
 function formatCoins(n) { return n.toLocaleString(); }
+function formatDate(d) {
+  const dt=new Date(d);
+  if(Number.isNaN(dt.getTime())) return '—';
+  return dt.toLocaleString();
+}
 
 function todayKey() { return new Date().toISOString().slice(0,10); }
 
@@ -159,10 +167,15 @@ async function apiFetch(path, opts={}, attempt=0) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
+    const method = (opts.method||'GET').toUpperCase();
+    const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
+    if(['POST','PUT','PATCH','DELETE'].includes(method) && CAPTCHA_TOKEN && !headers['x-captcha-token']) {
+      headers['x-captcha-token'] = CAPTCHA_TOKEN;
+    }
     const r = await fetch(url, {
-      method: opts.method||'GET',
+      method,
       signal: ctrl.signal,
-      headers: {'Content-Type':'application/json', ...(opts.headers||{})},
+      headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
     const ct = r.headers.get('content-type')||'';
@@ -177,6 +190,18 @@ async function apiFetch(path, opts={}, attempt=0) {
   } finally { clearTimeout(timer); }
 }
 
+async function sendAuthEvent(type, username) {
+  try { await apiFetch('/events/auth', { method:'POST', body:{ type, username } }); }
+  catch(e) { console.warn('Auth event log failed:', e.message); }
+}
+
+function logAuthEvent(type, username) {
+  const key = `th_auth_${type}_${username}`;
+  if(sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+  sendAuthEvent(type, username);
+}
+
 /* ════════════════════════════
    SOCKET
 ════════════════════════════ */
@@ -185,7 +210,7 @@ function initSocket() {
   S.socket = io(SOCKET_URL, { path:'/socket.io', transports:['websocket','polling'], reconnection:true });
   S.socket.on('connect', () => {
     S.connected = true; updateConnStatus();
-    consoleLog('✓ Connected to BlockPulse', 'success');
+    consoleLog('✓ Connected to Trash Hosting', 'success');
     if (S.selectedSrv) S.socket.emit('console:subscribe', S.selectedSrv.id);
   });
   S.socket.on('disconnect', reason => {
@@ -423,7 +448,7 @@ async function createServer() {
   const name = $('srvName')?.value?.trim();
   const ram  = parseInt($('srvRam')?.value||'1024');
   if(!name) { toast('Enter a server name!', 'error'); return; }
-  if(ram<512||ram>3072) { toast('RAM must be 512–3072 MB', 'error'); return; }
+  if(ram<1024||ram>3072) { toast('RAM must be 1024–3072 MB', 'error'); return; }
   showLoading(`🚀 Launching "${name}"…`);
   try {
     const r = await apiFetch('/create-server', {method:'POST',body:{name,ramMb:ram,preset:S.preset}});
@@ -861,9 +886,10 @@ function navigateTo(page) {
   if(page==='tasks') renderTasks();
 }
 
-function showLanding() { $('landingPage').classList.add('active'); $('loginPage').classList.remove('active'); $('dashboardPage').classList.remove('active'); }
-function showLogin()   { $('landingPage').classList.remove('active'); $('loginPage').classList.add('active'); $('dashboardPage').classList.remove('active'); }
-function showDashboard(){ $('landingPage').classList.remove('active'); $('loginPage').classList.remove('active'); $('dashboardPage').classList.add('active'); }
+function showLanding() { $('landingPage').classList.add('active'); $('loginPage').classList.remove('active'); $('dashboardPage').classList.remove('active'); $('adminPage')?.classList.remove('active'); }
+function showLogin()   { $('landingPage').classList.remove('active'); $('loginPage').classList.add('active'); $('dashboardPage').classList.remove('active'); $('adminPage')?.classList.remove('active'); }
+function showDashboard(){ $('landingPage').classList.remove('active'); $('loginPage').classList.remove('active'); $('dashboardPage').classList.add('active'); $('adminPage')?.classList.remove('active'); }
+function showAdmin()   { $('landingPage').classList.remove('active'); $('loginPage').classList.remove('active'); $('dashboardPage').classList.remove('active'); $('adminPage')?.classList.add('active'); }
 
 /* ════════════════════════════
    LOGIN / LOGOUT
@@ -871,9 +897,11 @@ function showDashboard(){ $('landingPage').classList.remove('active'); $('loginP
 function tryLogin() {
   const username=$('loginUsername').value.trim();
   if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)){ toast('Username must be 3–20 chars: letters, numbers, underscores','error'); return; }
+  let isNew = false;
   // Load or create user
   if(!S.user || S.user.name!==username) {
     const existing=Store.get('user');
+    isNew = !existing || existing.name !== username;
     if(existing&&existing.name===username) { S.user=existing; }
     else {
       S.user={name:username, coins:100, streak:0, lastLogin:null, lastClaim:null, spinLastUsed:null, adLastUsed:null, tasks:null};
@@ -881,6 +909,7 @@ function tryLogin() {
     }
     saveUser();
   }
+  logAuthEvent(isNew ? 'register' : 'login', username);
   bootDashboard();
 }
 
@@ -908,6 +937,96 @@ function bootDashboard() {
   if($('stRank')) $('stRank').textContent='#'+Math.floor(Math.random()*100+1);
 }
 
+function openAdminLogin() {
+  showModal(`
+    <h3 style="margin-bottom:12px">🔐 Admin Access</h3>
+    <p style="color:var(--c-muted2);margin-bottom:16px">Sign in to view all servers, logins, and registrations.</p>
+    <label class="fl">Admin Username</label>
+    <input id="adminUsername" type="text" class="fi" placeholder="admin" autocomplete="off"/>
+    <label class="fl" style="margin-top:12px">Admin Password</label>
+    <input id="adminPassword" type="password" class="fi" placeholder="••••••••" autocomplete="current-password"/>
+    <button class="btn-main w100" id="adminLoginSubmit" style="margin-top:16px">Unlock Admin →</button>
+  `);
+  $('adminLoginSubmit')?.addEventListener('click', adminLogin);
+  $('adminPassword')?.addEventListener('keydown', e=>{ if(e.key==='Enter') adminLogin(); });
+}
+
+async function adminLogin() {
+  const username=$('adminUsername')?.value?.trim();
+  const password=$('adminPassword')?.value||'';
+  if(!username||!password) { toast('Enter admin username & password','error'); return; }
+  const authHeader='Basic '+btoa(`${username}:${password}`);
+  showLoading('Verifying admin…');
+  try {
+    const data = await apiFetch('/admin/metrics', { headers: { Authorization: authHeader } });
+    S.admin={ username, authHeader };
+    S.adminMetrics=data;
+    hideModal();
+    showAdmin();
+    renderAdminMetrics(data);
+  } catch(e) { toast(e.message||'Admin login failed','error'); }
+  finally { hideLoading(); }
+}
+
+function adminLogout() {
+  S.admin=null; S.adminMetrics=null;
+  showLanding();
+}
+
+async function loadAdminMetrics() {
+  if(!S.admin) return;
+  showLoading('Refreshing admin metrics…');
+  try {
+    const data = await apiFetch('/admin/metrics', { headers: { Authorization: S.admin.authHeader } });
+    S.adminMetrics=data;
+    renderAdminMetrics(data);
+  } catch(e) { toast(e.message||'Failed to load metrics','error'); }
+  finally { hideLoading(); }
+}
+
+function renderAdminMetrics(data) {
+  if(!data) return;
+  if($('admTotalServers')) $('admTotalServers').textContent=data.totals?.servers ?? 0;
+  if($('admTotalUsers')) $('admTotalUsers').textContent=data.totals?.users ?? 0;
+  if($('admTotalLogins')) $('admTotalLogins').textContent=data.totals?.logins ?? 0;
+  if($('admTotalRegisters')) $('admTotalRegisters').textContent=data.totals?.registrations ?? 0;
+
+  const events=$('adminEventsTable');
+  if(events) {
+    if(!data.recentEvents?.length) {
+      events.innerHTML='<tr><td colspan="4" class="empty-msg">No login activity yet.</td></tr>';
+    } else {
+      events.innerHTML=data.recentEvents.map(ev=>`
+        <tr>
+          <td>${esc(ev.username||'—')}</td>
+          <td>${esc(ev.type||'—')}</td>
+          <td>${esc(ev.ip||'—')}</td>
+          <td>${formatDate(ev.createdAt)}</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  const servers=$('adminServersTable');
+  if(servers) {
+    if(!data.servers?.length) {
+      servers.innerHTML='<tr><td colspan="4" class="empty-msg">No servers yet.</td></tr>';
+    } else {
+      servers.innerHTML=data.servers.map(raw=>{
+        const s=normalizeServer(raw);
+        return `
+          <tr>
+            <td>${esc(s.name)}</td>
+            <td>${esc(s.id)}</td>
+            <td>${esc(s.status)}</td>
+            <td>${s.ram} MB</td>
+          </tr>
+        `;
+      }).join('');
+    }
+  }
+}
+
 /* ════════════════════════════
    HELPERS
 ════════════════════════════ */
@@ -922,8 +1041,11 @@ function bindEvents() {
   $('loginNavBtn')?.addEventListener('click',showLogin);
   $('loginBtn')?.addEventListener('click',tryLogin);
   $('loginBack')?.addEventListener('click',showLanding);
+  $('adminLoginLink')?.addEventListener('click',openAdminLogin);
   $('loginUsername')?.addEventListener('keydown',e=>{if(e.key==='Enter') tryLogin();});
   $('logoutBtn')?.addEventListener('click',logout);
+  $('adminLogoutBtn')?.addEventListener('click',adminLogout);
+  $('adminRefresh')?.addEventListener('click',loadAdminMetrics);
 
   // Sidebar navigation
   qsa('.sb-item').forEach(b=>{ b.addEventListener('click',()=>navigateTo(b.dataset.page)); });
